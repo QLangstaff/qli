@@ -13,17 +13,17 @@ These three forks have been locked. Documented here for reference; the phases be
 
 ## Phase 0: Repo bootstrap
 
-- [ ] **Verify crate name availability on crates.io** for `qli`, `qli-core`, `qli-ext`, `qli-lang`, `qli-lang-python`, `qli-lang-typescript`, `qli-lang-csharp`, `qli-lang-angular`, `qli-outputs`, `qli-lsp`, `qli-scip`. If `qli` is squatted, fall back to `qlictl` (or similar) and rename downstream `qli-*` crates to match. Lock the chosen name before any code.
-- [ ] Reserve crate names by publishing empty `0.0.0` placeholders if any are taken (or pivot the prefix). Document the chosen name prefix in `README.md`.
-- [ ] Initialize Cargo workspace at repo root (`Cargo.toml` with `[workspace]`, `members = ["crates/*"]`, shared `[workspace.package]` for version/license/edition).
-- [ ] Add `rust-toolchain.toml` pinning `channel = "1.83.0"`, `components = ["rustfmt", "clippy"]`.
-- [ ] Add `.gitignore` for Rust (`/target`, `Cargo.lock` rules, `.DS_Store`).
-- [ ] Add `.editorconfig` (4-space tabs for Rust, LF line endings, trim trailing whitespace).
-- [ ] Add `rustfmt.toml` with project conventions (e.g., `max_width = 100`, `imports_granularity = "Crate"`).
-- [ ] Add `clippy.toml` (or `[lints]` in `Cargo.toml`) enabling `clippy::all` + selectively `clippy::pedantic` lints, denying warnings in CI.
-- [ ] Confirm existing `LICENSE` is the intended license; record it in workspace `[workspace.package].license`.
-- [ ] Replace placeholder `README.md` with a stub that describes the project and links to `plans/active/qli-foundation/`.
-- [ ] Verify: `cargo check` from a fresh clone succeeds (no crates yet, but the workspace parses).
+- [x] **Verify crate name availability on crates.io** for `qli`, `qli-core`, `qli-ext`, `qli-lang`, `qli-lang-python`, `qli-lang-typescript`, `qli-lang-csharp`, `qli-lang-angular`, `qli-outputs`, `qli-lsp`, `qli-scip`. Lock the chosen name before any code.
+- [x] Reserve crate names by publishing empty `0.0.0` placeholders. All 11 `qli-*` support crates (`qli-core`, `qli-ext`, `qli-lang`, `qli-lang-python`, `qli-lang-typescript`, `qli-lang-csharp`, `qli-lang-angular`, `qli-outputs`, `qli-lsp`, `qli-scip`, `qli-analyzers`) published as `0.0.0` via `scripts/reserve-placeholder-crates.sh` on 2026-04-30. The main `qli` name is in the parallel reclaim flow.
+- [x] Initialize Cargo workspace at repo root (`Cargo.toml` with `[workspace]`, `members = ["crates/*"]`, shared `[workspace.package]` for version/license/edition/repository/rust-version). `crates/.gitkeep` keeps the empty members directory tracked.
+- [x] Add `rust-toolchain.toml` pinning `channel = "1.83.0"`, `components = ["rustfmt", "clippy"]`.
+- [x] Add `.gitignore` for Rust (`/target`, `**/target`, IDE dirs, `.DS_Store`, env files).
+- [x] Add `.editorconfig` (4-space tabs for Rust, LF line endings, trim trailing whitespace; 2-space for TOML/YAML/JSON; tab for Makefile).
+- [x] Add `rustfmt.toml` with project conventions (`edition = "2021"`, `max_width = 100`, `newline_style = "Unix"`, `use_field_init_shorthand = true`). Stable rustfmt options only — `imports_granularity` is nightly-gated and was deliberately omitted.
+- [x] Lints configured via `[workspace.lints]` in `Cargo.toml` (stable since Rust 1.74) — `clippy::all` warn, `clippy::pedantic` warn, with selective allows for noisy lints (`module_name_repetitions`, `must_use_candidate`, `missing_errors_doc`, `missing_panics_doc`); `unsafe_code = "forbid"` and `missing_debug_implementations = "warn"` on the rust group. Workspace lints opt in per crate via `lints.workspace = true`. CI denies warnings via `cargo clippy -- -D warnings`.
+- [x] Confirmed existing `LICENSE` is MIT; recorded as `license = "MIT"` in `[workspace.package]`.
+- [x] Replace placeholder `README.md` with a stub that describes the project and links to `plans/active/qli-foundation/`. Status line updated to note the `qli-*` prefix is reserved.
+- [x] Verify: workspace manifest parses on a fresh clone. `cargo metadata --no-deps` succeeds (exit 0). `cargo check` is not the right verify here — an empty workspace has nothing to check; that gate fires in Phase 1A once member crates exist. `rust-toolchain.toml` was honored (triggered auto-install of 1.83.0 via rustup).
 
 ## Phase 1: Skeleton + Extension Dispatch
 
