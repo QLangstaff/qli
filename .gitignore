@@ -1,0 +1,21 @@
+# Rust build artifacts
+/target
+**/target
+Cargo.lock.bak
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Backups
+*.swp
+*.swo
+*~
+
+# Local env
+.env
+.env.local
