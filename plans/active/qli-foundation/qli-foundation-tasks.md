@@ -1,15 +1,11 @@
 # Task Checklist: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-04-30
+**Last Updated:** 2026-05-01
 
 Each phase ships a working artifact. Don't start phase N+1 until phase N's "verify" tasks pass.
 
 ## Resolved structural decisions
 
-These three forks have been locked. Documented here for reference; the phases below assume them.
-
-- **Crate publishing:** publish every workspace crate (`qli`, `qli-core`, `qli-ext`, `qli-lang`, `qli-lang-*`, `qli-outputs`, `qli-lsp`, `qli-scip`) to crates.io under the `qli-*` prefix. Use `release-plz` or a topological-order script for releases. Required for `cargo install qli` to work from the registry.
-- **Extension defaults:** embed the repo's `extensions/` directory into the binary at compile time via `include_dir!`. `qli ext install-defaults` writes these embedded defaults to `$XDG_DATA_HOME/qli/extensions/`. User-installed extensions always override at dispatch time.
-- **SCIP prerequisite:** Phase 4 (SCIP emission) requires a real symbol/reference analyzer. Added as **Phase 2I — definition + reference extractor** below; Phase 4 cannot ship without it.
+Three structural forks (crate publishing, embedded extension defaults, SCIP prerequisite) are locked — see [`qli-foundation-context.md` → Resolved blocking decisions](qli-foundation-context.md#resolved-blocking-decisions-locked-before-phase-0). The phases below assume them.
 
 ## Phase 0: Repo bootstrap
 
@@ -29,29 +25,31 @@ These three forks have been locked. Documented here for reference; the phases be
 
 ### 1A: Workspace crates (stubs)
 
-- [ ] Create empty crates: `qli`, `qli-core`, `qli-lang`, `qli-outputs`, `qli-ext`. Each gets `Cargo.toml` + `src/lib.rs` (or `src/main.rs` for `qli`).
-- [ ] Wire dependencies: `qli` depends on `qli-ext`. `qli-ext` does **not** depend on `qli-outputs` (decoupling: Phase 1 dispatcher prints banners/errors directly via `anstream`; `qli-outputs` is for analysis output formatters in Phase 2+). `qli` will pull in `qli-core`, `qli-lsp`, `qli-scip`, language adapters in their respective phases.
-- [ ] Verify: `cargo build` succeeds.
+- [x] Created stub crates: `qli` (binary, `crates/qli/src/main.rs`), `qli-core`, `qli-lang`, `qli-outputs`, `qli-ext` (libraries, each with `src/lib.rs` doc-only stub). Each Cargo.toml inherits version/edition/license/repository/rust-version from `[workspace.package]` and opts into workspace lints via `[lints] workspace = true`.
+- [x] Wired dependency: `qli` → `qli-ext` (path dep with version `0.0.0`). `qli-ext` does **not** depend on `qli-outputs` (decoupled per plan: Phase 1 dispatcher will print banners/errors directly via `anstream`; `qli-outputs` is for analysis output formatters in Phase 2+). Other deps (`qli-core`, `qli-lsp`, `qli-scip`, language adapters) wired in their respective phases.
+- [x] Verified: `cargo build` succeeds (all 5 crates compile clean); `cargo run -p qli` prints the stub message; `cargo clippy --workspace -- -D warnings` clean.
 
 ### 1B: Core CLI scaffolding (in `qli` crate)
 
-- [ ] Add `clap` (derive) with workspace root command `qli`.
-- [ ] Implement `--version` (auto from `CARGO_PKG_VERSION`).
-- [ ] Implement `qli completions <shell>` using `clap_complete` (bash, zsh, fish, powershell).
-- [ ] Wire `tracing-subscriber` to log to stderr; respect `-v`/`-vv`/`-q` for level. Document precedence with `RUST_LOG` (env var overrides flags).
-- [ ] Implement standard exit code conventions (0 success, 1 error, 2 usage, 130 SIGINT, 143 SIGTERM).
-- [ ] Use the `ctrlc` crate to install a unified Ctrl+C / SIGTERM handler that flips an `AtomicBool` and exits cleanly with the right code (cross-platform; SIGTERM differs on Windows).
-- [ ] TTY detection: use `std::io::IsTerminal` from stdlib (stable since Rust 1.70) — no extra crate needed.
-- [ ] Color output: depend on `anstream` + `anstyle`. Wire `--color={auto,always,never}` flag; respect `NO_COLOR` automatically (handled by `anstream`).
-- [ ] Add `--help` examples to every subcommand using clap's `after_help` (or `after_long_help`) attribute. Examples should show the most common usage on stdin/stdout/file inputs and machine-readable output via `--json`.
-- [ ] Verify: `qli --version`, `qli --help`, `qli completions zsh > _qli` all work; `NO_COLOR=1 qli --help` produces no ANSI codes; pressing Ctrl+C during a long-running extension exits with code 130; `kill <pid>` exits with 143.
-- [ ] Verify: `qli analyze --help` (once Phase 2 lands) shows examples in its help output.
+- [x] Added `clap` (derive) with workspace root command `qli`. CLI struct in `crates/qli/src/cli.rs` with global `--verbose` (count), `--quiet`, `--color={auto,always,never}` flags.
+- [x] `--version` auto-wired via clap (prints `qli 0.0.0` from `CARGO_PKG_VERSION`).
+- [x] `qli completions <shell>` implemented using `clap_complete::generate` (bash, zsh, fish, powershell, elvish — all clap_complete defaults).
+- [x] `tracing-subscriber` to stderr; default `warn`, `-v`/`-vv`/`-vvv` → info/debug/trace, `-q` → error. `RUST_LOG` precedence (bare level overrides; target directive refines) documented inline in `crates/qli/src/logging.rs` and the `--verbose` help text.
+- [x] Exit code constants in `crates/qli/src/exit.rs`: `SUCCESS=0`, `ERROR=1`, `USAGE=2`, `SIGINT=130`, `SIGTERM=143`. SIGINT/SIGTERM are reserved for use in Phase 1F dispatcher (no long-running ops in 1B).
+- [x] `ctrlc` crate (with `termination` feature for SIGTERM on Unix) installed via `crates/qli/src/signal.rs::install()`. Returns an `Arc<AtomicBool>` flipped to `true` on signal; long-running ops in later phases will poll it.
+- [x] TTY detection via `std::io::IsTerminal` from stdlib (no extra crate). `clap` and `anstream` consult standard env vars internally; `apply_color_choice` translates `--color=always|never` to `CLICOLOR_FORCE` / `NO_COLOR` env vars before any output.
+- [x] Color output: `anstream` + `anstyle` deps added; `--color` flag wired; `NO_COLOR=1` auto-respected by clap (verified — `qli --help` produces no ANSI escapes under `NO_COLOR=1`).
+- [x] `--help` examples on the root command and on `completions` subcommand via clap's `after_help` (`ROOT_AFTER_HELP`, `COMPLETIONS_AFTER_HELP` constants in `cli.rs`). Future subcommands (analyze, lsp, index, ext) will follow the same pattern.
+- [x] MSRV bumped 1.83 → 1.85 (edition 2024 dep requirement); toolchain pin set to 1.95.0. Rationale in [context.md → toolchain pin entry](qli-foundation-context.md#architectural-decisions).
+- [x] Verified: `qli --version` prints `qli 0.0.0`; `qli --help` shows examples; `qli completions zsh` produces a valid zsh completion script; `NO_COLOR=1 qli --help` has zero ANSI escapes; `cargo build` and `cargo clippy --workspace -- -D warnings` both clean. SIGINT/SIGTERM verifies deferred to Phase 1F (no long-running ops in 1B to interrupt).
 
 ### 1C: XDG path resolution
 
-- [ ] Add `directories` crate; expose helpers `config_dir()`, `cache_dir()`, `state_dir()`, `data_dir()` for `qli`.
-- [ ] On first run, ensure these directories exist (mkdir -p semantics).
-- [ ] Verify: directories created at expected XDG paths on macOS + Linux.
+- [x] Used `etcetera` crate (not `directories`) with `etcetera::base_strategy::Xdg`. Reason: `directories` follows OS-native conventions (macOS = `~/Library/Application Support/qli`); the plan calls for strict XDG even on macOS, and `etcetera::Xdg` provides exactly that behavior cross-platform.
+- [x] Path resolution lives in the `qli` binary (`crates/qli/src/paths.rs`), not in any library crate. Library crates (qli-core, qli-ext, ...) take paths as parameters — keeps them stateless and pure.
+- [x] Public helpers: `config_dir()`, `cache_dir()`, `state_dir()`, `data_dir()` — each returns `Result<PathBuf>` for `<XDG base>/qli`. `ensure_all()` is best-effort: logs warnings on failure but does not error (individual ops handle their own errors with full context).
+- [x] Wired `paths::ensure_all()` into `main()` after logging init (so warnings are visible) and before subcommand dispatch.
+- [x] Verified on macOS: with `XDG_*` env vars unset, all four dirs are created at the documented defaults (`~/.config/qli`, `~/.cache/qli`, `~/.local/state/qli`, `~/.local/share/qli`). Trace events under `-vvv` confirm each dir was ensured. Linux verify deferred (same `etcetera::Xdg` code path; high confidence).
 
 ### 1D: Extension manifest schema
 
@@ -96,6 +94,8 @@ These three forks have been locked. Documented here for reference; the phases be
 - [ ] Propagate exit code from extension.
 - [ ] On Ctrl+C / SIGTERM mid-extension: forward the signal to the child, wait briefly, write a partial audit entry indicating interrupted, exit with the right code (130 / 143).
 - [ ] Verify: a `prod` group extension fails without `QLI_ENV=prod`; with env set, shows banner and confirm prompt; refuses non-interactively without `--yes`; with `--yes` runs and writes start+finish audit entries; secrets land in child env but never in audit log; Ctrl+C during the child writes an "interrupted" audit entry and exits 130.
+- [ ] Regression test: no resolved secret value appears in audit log, stdout, or stderr. Drive the dispatcher with fixture manifests whose secrets resolve to known sentinel strings; capture all three streams across happy paths and each guard-failure path; assert the sentinel never appears. Lands in this PR per Testing Strategy.
+- [ ] Decide color routing for first-party 1F output (banners, confirm prompts) — current env-mutation shim or one of the alternatives. See [context.md → Open design decisions → color routing](qli-foundation-context.md#color-routing-for-first-party-output-decide-in-phase-1f).
 
 ### 1G: Secrets providers
 
@@ -140,9 +140,11 @@ These three forks have been locked. Documented here for reference; the phases be
 
 ### 1L: Tests
 
-- [ ] Unit tests in `qli-ext` for manifest parsing, discovery, guard evaluation.
-- [ ] Integration tests using `assert_cmd` exercising real subprocess dispatch with a temp HOME.
-- [ ] Verify: `cargo test` is green; happy paths and at least one failure path per guard.
+- [ ] **Fixture root.** Create `tests/fixtures/README.md` documenting the workspace-root `tests/fixtures/<lang>/` convention; per-language subdirs are created by Phases 2H/2I as fixtures land. Verify: README exists; Phase 2H/2I/3/4 reference this path.
+- [ ] **Hermetic test harness.** Establish the convention: each crate that runs hermetic tests carries a `tests/common/mod.rs` that builds a `tempfile::TempDir` and overrides `XDG_CONFIG_HOME` / `XDG_DATA_HOME` / `XDG_STATE_HOME` per test; gate `Env`-provider tests with `serial_test`; define `OnePassword` as a trait that unit tests stub. First instance lands in `crates/qli-ext/tests/common/mod.rs`; copy into other crates as Phase 1L items 4 and 5 land. Verify: `XDG_CONFIG_HOME=/nonexistent XDG_DATA_HOME=/nonexistent XDG_STATE_HOME=/nonexistent cargo test -p qli -p qli-ext` is green; tests that mutate process env are gated with `#[serial]` and pass under `cargo test -- --test-threads=4`.
+- [ ] **Engine-purity test.** Add `crates/qli-core/tests/dependency_purity.rs` parsing `cargo metadata` and asserting `qli-core`'s direct dependencies match a hardcoded allowlist constant (initially empty); runs under the existing `cargo test` CI job. Lands before Phase 2A merges. Verify: adding `tracing` to `qli-core/Cargo.toml` fails the test with a message naming the offender; reverting passes.
+- [ ] **CLI contract snapshots.** Add `trycmd` dev-dep and a harness at `crates/qli/tests/cli.rs` driving case files under `crates/qli/tests/cmd/`; back-fill against shipped 1A–1C. Verify: `cargo test -p qli` green; `TRYCMD=overwrite cargo test -p qli` regenerates cleanly with no spurious diff.
+- [ ] **Dispatcher unit + integration tests.** Unit tests in `qli-ext` for manifest parsing, discovery, and guard evaluation; integration tests in `crates/qli/tests/` using `assert_cmd` under the hermetic harness, plus one test that spawns the dispatcher with a slow child, sends SIGINT, asserts exit code 130 and that the audit log contains an "interrupted" entry. Verify: `cargo test` is green; happy paths and at least one failure path per guard (`requires_env`, `confirm`, `secrets`, `audit_log`).
 
 ### Phase 1 acceptance
 
@@ -278,7 +280,8 @@ These three forks have been locked. Documented here for reference; the phases be
 - [ ] Args: `paths: Vec<PathBuf>` (positional), `--lang <id|auto>`, `--format <human|jsonl|auto>`, `--no-cache`, `-v`/`-q`.
 - [ ] Auto-detect language from extension when `--lang auto`.
 - [ ] Auto-detect format: `human` if stdout is a TTY, `jsonl` otherwise.
-- [ ] Verify: `qli analyze foo.py` and `qli analyze foo.ts` both work; `| jq .` consumes jsonl output.
+- [ ] Add `after_help` examples to `qli analyze` matching the 1B pattern (root + `completions`).
+- [ ] Verify: `qli analyze foo.py` and `qli analyze foo.ts` both work; `qli analyze --help` shows examples; `| jq .` consumes jsonl output.
 
 ### 2H: Trivial seed analyzer (TODO/FIXME extractor)
 
@@ -402,8 +405,9 @@ These three forks have been locked. Documented here for reference; the phases be
 
 ## Cross-cutting / standing tasks
 
-- [ ] Quarterly: bump `rust-toolchain.toml` to the latest stable, verify CI passes, commit.
+- [ ] Quarterly: bump `rust-toolchain.toml` to current latest stable, verify CI passes, commit. MSRV (`Cargo.toml` `rust-version`) is a separate decision — only bump it when a dependency forces it or you adopt a feature that requires it.
 - [ ] Quarterly: review `Cargo.lock` for security advisories (`cargo audit`).
 - [ ] Each phase: update README.md with installed-features state.
 - [ ] Each phase: update this `tasks.md` with discovered tasks; check off as completed.
 - [ ] Maintain `plans/backlog/` for ideas that surface mid-implementation but don't belong in the active plan.
+- [ ] May adopt later when justified (do not promote to Phase 1): `cargo-nextest`, `cargo-llvm-cov`, `proptest` beyond the manifest parser, fuzzing, MCP error-path expansion.

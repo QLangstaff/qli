@@ -1,5 +1,5 @@
 # Comprehensive Plan: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-04-30
+**Last Updated:** 2026-05-01
 
 ## Executive Summary
 
@@ -53,6 +53,17 @@ The goal is one tool that replaces ad-hoc personal automation scripts AND cross-
 - Platform-specific package managers beyond Homebrew (e.g., apt, dnf, winget) — out of scope for v1.
 - GUI / web frontend.
 - Telemetry / analytics.
+
+## Testing Strategy
+
+Conventions for tests; per-phase "Verify:" lines follow them. Tooling beyond what's listed here is out of scope until justified.
+
+- **Fixture location.** Workspace-root `tests/fixtures/<lang>/` (e.g., `tests/fixtures/python/`, `tests/fixtures/typescript/`). _Why:_ Phases 2H, 2I, 3, 4 all consume the same fixtures across crate boundaries; a shared root avoids duplication. _Enforced by:_ convention; PR review.
+- **Hermeticity.** Tests never touch real `$HOME`, `$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, or `~/.config/qli`; no network; the `op` binary is never invoked in CI. Use `tempfile::TempDir` + per-test env overrides. _Why:_ shared CI runners and dev machines must produce identical results. _Enforced by:_ `serial_test`-gated `Env`-provider tests; `OnePassword` is a stubbed trait at the test boundary.
+- **No mocks unless forced.** Prefer real artifacts via fixtures + tempdirs at every boundary except external binaries (`op`) and clock/randomness. _Why:_ mocks drift from the code they imitate; fixtures don't. _Enforced by:_ PR review.
+- **`qli-core` engine purity.** CI-enforced allowlist of `qli-core`'s direct dependencies (no `clap`, `tokio`, `tracing`, etc.). _Why:_ Phase 2A's no-I/O / no-global-state invariant erodes on the first convenient import unless enforced. _Enforced by:_ `crates/qli-core/tests/dependency_purity.rs` parsing `cargo metadata` against an allowlist constant; lands before Phase 2A merges. (Plan uses standalone `cargo audit` for advisories — adopting `cargo-deny` solely for `[bans]` would be overkill.)
+- **Secrets-never-leak.** Permanent regression test that no resolved secret value appears in audit log, stdout, or stderr (see Phase 1F dispatcher). _Why:_ one-off `Verify:` checks do not protect future PRs from regressing a security-sensitive contract. _Enforced by:_ test landing in the same PR as Phase 1F.
+- **CLI contract snapshots.** `trycmd` over `--help`, error messages, exit codes (0/1/2/130), and `NO_COLOR` honoring. _Why:_ clig.dev compliance is stated as a Phase 1 principle; without snapshots it has no teeth. _Enforced by:_ `trycmd` harness in `crates/qli/tests/cli.rs` driving case files under `crates/qli/tests/cmd/`; back-filled against shipped 1A–1C in Phase 1L.
 
 ## Risks & Mitigations
 

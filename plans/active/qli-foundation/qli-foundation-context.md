@@ -1,5 +1,5 @@
 # Context: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-04-30
+**Last Updated:** 2026-05-01
 
 ## Repository
 
@@ -11,7 +11,7 @@
 ```
 qli/
 ├── Cargo.toml                          # workspace
-├── rust-toolchain.toml                 # stable 1.83.0, refreshed quarterly
+├── rust-toolchain.toml                 # pinned stable, refreshed quarterly
 ├── Cargo.lock
 ├── .github/workflows/
 │   ├── ci.yml                          # lint + test + build matrix
@@ -115,12 +115,27 @@ qli/
 - **Engine purity is non-negotiable.** `qli-core` never touches stdout, never uses clap, never reads files directly (it gets passed bytes). This is what makes LSP, CLI, and SCIP frontends share it cleanly.
 - **Outputs are pluggable formatters.** Adding `--format yaml` later = one new file in `qli-outputs/`. Engine never knows.
 - **Lazy import equivalent in Rust.** Heavy crates (tree-sitter grammars, scip) live in their own crates and are only linked into binaries that need them. The main `qli` binary depends on all of them, so binary size grows; if startup becomes an issue, gate via cargo features later.
-- **`rust-toolchain.toml` pinned.** Reproducible builds across dev machines, CI, and `cargo-dist` runners. Pin = `1.83.0`, refreshed quarterly.
+- **`rust-toolchain.toml` pinned to current latest stable; bumped quarterly.** Currently `1.95.0`. MSRV (`rust-version` in `Cargo.toml`) tracked separately and lags the pin. Following the ruff / uv convention for modern Rust binary tools shipped via cargo-dist — both pin specific recent versions (no major project pins to literal `"stable"`). Rationale: reproducible CI / dev / release across the cross-compile matrix. cargo-dist itself recommends `rust-toolchain.toml` over its own deprecated `rust-toolchain-version` config for projects that want pinning. Alternative considered: drop the pin entirely (ripgrep / tokio / cargo pattern) — rejected because we already have a quarterly refresh task on the books and reproducibility wins are real for the multi-platform release matrix. Decision is reversible.
 - **Manifest schema versioned.** `schema_version = 1` on every `_manifest.toml`. Dispatcher rejects unknown versions with a clear error.
 - **`self-update` is a stub in Phase 1, real in Phase 1.5.** Solving self-update before any binaries exist is solving a non-problem; reserving the subcommand keeps UX consistent.
 - **Claude Code plugin is a wrapper, not a precondition.** The CLI is a CLI first. The plugin is a thin shell over a working binary; it doesn't dictate any architectural choices.
 - **Seed languages = Python + TypeScript.** Picked to exercise the polyglot trait with two genuinely different grammars before piling on. C# (Phase 2.5) and Angular (Phase 2.6) are explicit later milestones, not bolt-ons.
 - **Trivial seed analyzer (TODO/FIXME extractor).** Phase 2's job is to prove the architecture across languages, not to ship real analysis. Real analyzers come after Phase 2 is solid.
+
+### Open design decisions
+
+#### Color routing for first-party output (decide in Phase 1F)
+
+Phase 1B's `apply_color_choice` ([crates/qli/src/cli.rs](../../../crates/qli/src/cli.rs)) implements `--color=always|never` by setting `CLICOLOR_FORCE` / `NO_COLOR` process env vars before any output, so every downstream consumer (clap, anstream, future formatters) honors the choice without explicit threading. Phase 1F is the first phase that prints first-party colored output (banners, confirm prompts), so it's the moment to confirm or change that approach.
+
+| Approach | Pros | Cons |
+|---|---|---|
+| **Current (env mutation)** | Simplest. Works for clap's `print_help` and any env-honoring printer. | `std::env::set_var` becomes `unsafe` in Rust edition 2024 (workspace is on 2021 today). Does NOT cover clap's parse-error rendering since parsing runs before our code. |
+| **cargo's approach** | Pre-scans argv for `--color` before clap parses; constructs an internal `Shell` abstraction that gates all colored output. Covers parse errors. | Requires the pre-scan layer plus the `Shell` abstraction. |
+| **ripgrep's approach** | Internal color-state struct threaded through every printer; flag value passed in directly. No env mutation. Has a fourth `ansi` value alongside auto/always/never for Windows-native vs. ANSI sequences. | Threading overhead through every printer. |
+| **clap-direct** | `Command::color(cli.color)` for the `print_help` path; thread the choice into our own printer for first-party output. | Doesn't cover parse errors (set before parse) unless combined with a pre-scan. |
+
+Also decide whether to support a fourth value (rg's `ansi`) or stick with auto/always/never (cargo's set).
 
 ## Constraints
 
@@ -130,5 +145,5 @@ qli/
 - **Solo author.** Plan must be self-contained and resumable across sessions; tasks must be small enough to pick up cold.
 - **Unix-style discipline.** stdout=data / stderr=chatter, exit codes 0/1/2/130, GNU long flags, kebab-case command names.
 - **No backwards-compat carrying yet.** Pre-1.0; manifest schema, output JSON, and CLI flags can change with minor version bumps. After 1.0 these become API surface.
-- **Rust 2021 edition** (2024 edition stable in 1.85+; consider migration after toolchain pin advances).
+- **Rust 2021 edition.** Toolchain pin (1.95.0) and MSRV (1.85) both support edition 2024, but the workspace stays on 2021 for now. Edition 2024 makes `std::env::set_var` / `remove_var` `unsafe` (race-y in multi-threaded programs); migrating means auditing `apply_color_choice` and any future env mutation. Defer until there's a reason.
 - **License:** repo already has a `LICENSE` file — preserve it; per-crate `Cargo.toml` declares matching `license = "..."`.
