@@ -1,0 +1,66 @@
+use clap::{ColorChoice, Parser, Subcommand};
+
+#[derive(Parser, Debug)]
+#[command(
+    name = "qli",
+    version,
+    about = "Polyglot code-analysis CLI and any-language extension framework.",
+    after_help = ROOT_AFTER_HELP,
+)]
+pub struct Cli {
+    /// Increase logging verbosity. -v info, -vv debug, -vvv trace.
+    /// `RUST_LOG=<level>` overrides; `RUST_LOG=<target>=<level>` refines.
+    #[arg(short = 'v', long = "verbose", action = clap::ArgAction::Count, global = true)]
+    pub verbose: u8,
+
+    /// Decrease logging (suppress info; errors still print).
+    #[arg(short = 'q', long = "quiet", global = true, conflicts_with = "verbose")]
+    pub quiet: bool,
+
+    /// When to use colored output.
+    #[arg(long = "color", value_enum, default_value_t = ColorChoice::Auto, global = true)]
+    pub color: ColorChoice,
+
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Generate shell completions.
+    #[command(after_help = COMPLETIONS_AFTER_HELP)]
+    Completions {
+        /// Target shell.
+        shell: clap_complete::Shell,
+    },
+}
+
+const ROOT_AFTER_HELP: &str = "\
+EXAMPLES:
+    qli --version                       Print qli's version.
+    qli completions zsh > ~/.zsh/_qli   Generate zsh completion script.
+    NO_COLOR=1 qli --help               Disable colored output.
+";
+
+const COMPLETIONS_AFTER_HELP: &str = "\
+EXAMPLES:
+    qli completions bash > /usr/local/etc/bash_completion.d/qli
+    qli completions zsh  > \"${fpath[1]}/_qli\"
+    qli completions fish > ~/.config/fish/completions/qli.fish
+";
+
+/// Apply --color choice by setting the standard env vars that both clap and
+/// `anstream` consult. `Auto` leaves the environment untouched so the existing
+/// `NO_COLOR` / `CLICOLOR_FORCE` rules apply.
+pub fn apply_color_choice(choice: ColorChoice) {
+    match choice {
+        ColorChoice::Always => {
+            std::env::remove_var("NO_COLOR");
+            std::env::set_var("CLICOLOR_FORCE", "1");
+        }
+        ColorChoice::Never => {
+            std::env::set_var("NO_COLOR", "1");
+        }
+        ColorChoice::Auto => {}
+    }
+}

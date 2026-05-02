@@ -1,0 +1,24 @@
+[package]
+name = "qli"
+description = "Polyglot code-analysis CLI and any-language extension framework."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+qli-ext = { path = "../qli-ext", version = "0.0.0" }
+
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+anstream = "0.6"
+anstyle = "1"
+anyhow = "1"
+ctrlc = { version = "3", features = ["termination"] }
+etcetera = "0.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[lints]
+workspace = true

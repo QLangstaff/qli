@@ -1,0 +1,11 @@
+[package]
+name = "qli-lang"
+description = "Language adapter trait and tree-sitter glue for the qli polyglot CLI."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
