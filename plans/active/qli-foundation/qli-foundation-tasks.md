@@ -1,5 +1,5 @@
 # Task Checklist: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-05-01
+**Last Updated:** 2026-05-02
 
 Each phase ships a working artifact. Don't start phase N+1 until phase N's "verify" tasks pass.
 
@@ -53,49 +53,64 @@ Three structural forks (crate publishing, embedded extension defaults, SCIP prer
 
 ### 1D: Extension manifest schema
 
-- [ ] Define `_manifest.toml` schema in `qli-ext` using `serde`. Fields:
-  - `schema_version: u32` (start at 1).
-  - `description: String`.
-  - `banner: Option<String>` (printed to stderr before any extension in this group runs).
-  - `requires_env: Option<HashMap<String, String>>` (e.g., `{ QLI_ENV = "prod" }`).
-  - `confirm: bool` (default `false`).
-  - `audit_log: Option<PathBuf>` (path supports `$XDG_STATE_HOME` expansion).
-  - `secrets: Vec<SecretSpec>` where `SecretSpec` is `{ env: String, ref: String, provider: SecretProvider }`.
-  - `SecretProvider`: `OnePassword | Env`.
-- [ ] Reject manifests with unknown `schema_version` with a clear error.
-- [ ] Document the schema in `extensions/README.md`.
-- [ ] Verify: unit tests parse valid manifests and reject malformed ones with helpful messages.
+- [x] Defined `_manifest.toml` schema in `qli-ext` (`crates/qli-ext/src/manifest.rs`) using `serde` + `toml` 0.8 + `thiserror` 2. `Manifest` carries `schema_version: u32`, `description: String`, `banner: Option<String>`, `requires_env: HashMap<String,String>` (default empty), `confirm: bool` (default false), `audit_log: Option<String>`, `secrets: Vec<SecretSpec>` (default empty). `SecretSpec` carries `env`, `reference` (TOML key `ref` via `#[serde(rename = "ref")]` since `ref` is a Rust keyword), and `provider: SecretProvider`. `SecretProvider` enum has `OnePassword` and `Env` variants with `#[serde(rename_all = "snake_case")]` so TOML uses `provider = "one_password"` / `provider = "env"`, matching the surrounding key style. Every struct uses `#[serde(deny_unknown_fields)]` so typos like `audti_log` fail loudly. `audit_log` is stored as a `String` (not `PathBuf`) because `$XDG_STATE_HOME` / `~` are still literal until the dispatcher expands them in Phase 1F — `String → PathBuf` happens at that boundary. `Manifest` implements `FromStr` (not an inherent `from_str`, to satisfy `clippy::should_implement_trait`).
+- [x] Reject schema-version mismatches via two typed variants: `ManifestError::SchemaVersionTooNew { found, supported }` (`found > supported`, message: `manifest schema_version {found} is newer than this qli build supports ({supported}); upgrade qli or downgrade the manifest`) and `ManifestError::SchemaVersionInvalid { found, supported }` (`found < supported`, e.g. `0`, message: `manifest schema_version {found} is invalid (this qli build supports {supported})`). `CURRENT_SCHEMA_VERSION` const = 1.
+- [x] **Parse-time SecretSpec validation** (fail at the manifest boundary, not deep in dispatch): `Manifest::from_str` walks every `[[secrets]]` entry via `validate_secret_spec`. Rejects empty `env`, `env` containing `=`, `env` containing NUL, and empty `ref` — all conditions that would otherwise crash `Command::env` at exec time. New variants `ManifestError::InvalidSecretEnv { env, reason: &'static str }` and `ManifestError::InvalidSecretRef { env, reason: &'static str }`.
+- [x] Documented schema in `extensions/README.md` with TOML example covering every field, a field-summary table, a `SecretSpec` table, and a "schema versioning" paragraph noting this is pre-1.0 mutable surface.
+- [x] Verify: 13 unit tests in `manifest::tests` pass — minimal manifest (defaults applied), full manifest (both providers, snake_case values), `schema_version = 2` rejected as `SchemaVersionTooNew`, `schema_version = 0` rejected as `SchemaVersionInvalid`, missing `schema_version` (serde error mentions the field name), unknown field (`audti_log` typo, error names the offender), unknown provider value (`vault`), stale PascalCase value (`OnePassword`) rejected to lock in the casing decision, `ref`-keyword round-trip, and four secret-spec validation tests (empty env, `=` in env, NUL in env, empty ref). `cargo clippy --workspace --all-targets -- -D warnings` clean; `cargo fmt --all -- --check` clean; full workspace `cargo test` passes.
 
 ### 1E: Extension discovery
 
-- [ ] Discover groups (subdirs of `$XDG_DATA_HOME/qli/extensions/` and the embedded defaults from `include_dir!`). Flat structure only — no nested subgroups in v1.
-- [ ] A group requires a `_manifest.toml` to exist (in XDG dir or embedded). PATH-only groups (i.e., `qli-foo-bar` exists on PATH but no `foo` manifest anywhere) are **rejected** with a warning: "PATH binary `qli-foo-bar` references unknown group `foo`; create `extensions/foo/_manifest.toml` to enable it." This prevents PATH from silently creating unguarded groups.
-- [ ] Within each group, discover executable files (skip `_manifest.toml`, skip files starting with `_`).
-- [ ] Also discover `qli-<group>-<name>` executables on `PATH`.
-- [ ] **Collision rule**: if both `$XDG_DATA_HOME/qli/extensions/<group>/<name>` and PATH `qli-<group>-<name>` exist, the XDG dir wins. Warn the user once at discovery time: "extension `<group> <name>` exists in both XDG and PATH; using XDG. Use `qli ext which` to inspect."
-- [ ] **Clap dynamic subcommand strategy**: pick one and document the choice in code comments:
-  - Option A: `Command::allow_external_subcommands(true)` — simpler but loses help integration for groups.
-  - Option B: enumerate discovered groups/extensions at startup and synthesize `Command::subcommand(...)` entries dynamically; full help integration but adds a dispatch shim.
-  - Decision: Option B — full help integration is worth the extra code. Discovery runs once at startup; the synthesized clap tree includes every group/extension with its description from the manifest.
-- [ ] Skip files without execute bit; warn on non-executables in extensions dir.
-- [ ] Verify: drop a `chmod +x` script in `~/.local/share/qli/extensions/dev/foo`, run `qli dev foo` — it executes. `qli --help` lists the `dev` group with its description; `qli dev --help` lists `foo` with its description (from manifest if specified). PATH binary `qli-bogus-thing` produces a warning to stderr at startup.
+- [x] Discover groups: subdirs of `$XDG_DATA_HOME/qli/extensions/` containing a `_manifest.toml` (`crates/qli-ext/src/discovery.rs::scan_xdg_root`). Flat structure only. Embedded `include_dir!` defaults are deferred to Phase 1H — discovery is structured around an `extensions_root: &Path` so the second source slots in cleanly when 1H lands.
+- [x] PATH-only groups rejected with warning: `merge_path_binaries` emits `PATH binary \`qli-<group>-<name>\` references unknown group \`<group>\`; create extensions/<group>/_manifest.toml to enable it`.
+- [x] Within each group, discover executable files; skip `_manifest.toml` and any other `_*` file (`scan_group_executables`). Non-UTF-8 names skipped with a warning.
+- [x] Discover `qli-<group>-<name>` on `PATH` via `scan_path_for_qli_binaries`: `std::env::split_paths` walk + `strip_prefix("qli-").split_once('-')`. Per-advisor blind spot #2: malformed names (`qli-`, `qli-foo` no separator, `qli-foo-` trailing empty) warn and skip rather than producing empty group/extension entries.
+- [x] **Collision rule**: XDG wins at `merge_path_binaries`; warning text matches the plan verbatim (`extension \`<group> <name>\` exists in both XDG (...) and PATH (...); using XDG. Use \`qli ext which\` to inspect.`).
+- [x] **Clap dynamic subcommand strategy = Option B.** `crates/qli/src/main.rs` calls `Cli::command()` for the static derive tree, then loops over `discovery.groups` adding `ext::build_group_command(group)` synthesized in `crates/qli/src/ext.rs`. Names are leaked once at startup since `clap::Command::new` requires `Into<Str>` and `Str` only converts from `&'static str`. Globals are pulled from `ArgMatches` via `get_count`/`get_flag`/`get_one` rather than `Cli::from_arg_matches` (which would fail on synthesized subcommands).
+- [x] Reserved-name guard (advisor blind spot #1): `RESERVED_GROUP_NAMES` const in `discovery.rs` blocks `analyze`, `completions`, `ext`, `help`, `index`, `lsp`, `mcp`, `self-update`. A user group named `completions` is skipped with a warning instead of panicking clap at `--help` time on duplicate subcommand. Forward-looking — only `completions` is registered today; the others are reserved for future phases.
+- [x] Skip files without execute bit; warn on non-executables (`is_executable` checks `mode & 0o111` on Unix; non-Unix accepts any regular file pending a Windows port).
+- [x] Per-extension descriptions: the Phase 1D manifest schema has no per-extension description field, so each extension's `about` shows `XDG: <path>` or `PATH: <path>`. The 1E verify said "from manifest if specified"; deferring a `[extensions.<name>]` table to a future schema bump if and when needed (out of scope for 1E).
+- [x] Argument forwarding: extension subcommands set `disable_help_flag(true) + disable_version_flag(true)` so `--help`/`--version` reach the script, plus a `trailing_var_arg(true) + allow_hyphen_values(true) + num_args(0..) + value_parser!(OsString)` positional. Args round-trip via `matches.get_many::<OsString>("args")`.
+- [x] Basic dispatch in `crates/qli-ext/src/dispatch.rs::run` — `Command::spawn`/`status` (not `exec`) so Phase 1F can wrap the spawn with the guard sequence and write a post-run audit entry. Exit code maps signal exits to `128 + signo` on Unix.
+- [x] Discovery warnings print BEFORE `get_matches` so they fire on `--help`, `--version`, and parse-error paths (clap exits before our post-`get_matches` code runs). Direct `eprintln!` — not gated on logging level.
+- [x] Verify: 7 new unit tests in `discovery::tests` (missing root, happy path, `_*` skip, non-executable warning, malformed manifest, no-manifest skip, reserved name) + workspace `cargo build`/`clippy --all-targets -D warnings`/`fmt --check`/`test` all green. Manual smoke test against the documented acceptance:
+    - `qli --help` lists the `dev` group with description (✓).
+    - `qli dev --help` lists each extension with its resolved path (✓).
+    - `qli dev foo arg1 --flag arg2` runs the XDG script and forwards `arg1 --flag arg2` (✓).
+    - Exit code 7 from the child propagates to `qli`'s exit code 7 (✓).
+    - PATH `qli-bogus-thing` warns about unknown group at startup (✓).
+    - PATH `qli-dev-foo` colliding with XDG `dev/foo` warns and XDG wins (✓).
+    - Reserved-name group `completions` skipped with warning (✓).
+    - Malformed PATH binaries (`qli-orphan`, `qli-only-`) warn and skip (✓).
+    - Non-executable file in extensions dir warns with `chmod +x` hint (✓).
 
 ### 1F: Dispatcher with guardrails
 
-- [ ] Before running an extension, execute group-level guards in **this order** (each step gates the next):
-  1. Print `banner` to stderr if set.
-  2. Check `requires_env` — fail with clear error and "set X=Y" suggestion if not satisfied.
-  3. **Confirm before secrets**: if `confirm` is true and stdin is a TTY, prompt the user; if not a TTY and `--yes` not passed, refuse with clear error. Confirming early avoids fetching secrets the user is going to abort on (and prevents unnecessary `op` audit entries).
-  4. Inject `secrets` (resolve via 1Password CLI for `OnePassword`, env lookup for `Env`). All secrets resolved up-front; fail closed on any resolution error.
-  5. Append start entry to `audit_log` (timestamp, user, command, args, env var **names** only — never values).
-  6. Spawn the extension as a child process via `std::process::Command::spawn` (not `exec` — the dispatcher must remain alive to write the post-run audit entry, propagate exit codes, and forward signals).
-  7. Wait on the child; forward stdout/stderr/stdin transparently.
-  8. After child exits, append finish entry to audit log with exit code and duration.
-- [ ] Propagate exit code from extension.
-- [ ] On Ctrl+C / SIGTERM mid-extension: forward the signal to the child, wait briefly, write a partial audit entry indicating interrupted, exit with the right code (130 / 143).
-- [ ] Verify: a `prod` group extension fails without `QLI_ENV=prod`; with env set, shows banner and confirm prompt; refuses non-interactively without `--yes`; with `--yes` runs and writes start+finish audit entries; secrets land in child env but never in audit log; Ctrl+C during the child writes an "interrupted" audit entry and exits 130.
-- [ ] Regression test: no resolved secret value appears in audit log, stdout, or stderr. Drive the dispatcher with fixture manifests whose secrets resolve to known sentinel strings; capture all three streams across happy paths and each guard-failure path; assert the sentinel never appears. Lands in this PR per Testing Strategy.
-- [ ] Decide color routing for first-party 1F output (banners, confirm prompts) — current env-mutation shim or one of the alternatives. See [context.md → Open design decisions → color routing](qli-foundation-context.md#color-routing-for-first-party-output-decide-in-phase-1f).
+- [x] Group-level guards run in this order (each gates the next), implemented in [`crates/qli-ext/src/dispatch.rs::run`](../../../crates/qli-ext/src/dispatch.rs):
+  1. Banner to stderr if set ([`guard::print_banner`](../../../crates/qli-ext/src/guard.rs)).
+  2. `requires_env` checked — `EnvMissing` error includes `export X=Y` suggestion (`guard::check_requires_env`).
+  3. Confirm gated *before* secret resolution. `--yes` short-circuits; non-TTY with `confirm = true` and no `--yes` returns `NonInteractiveRefuse` (`guard::run_confirm` + `guard::TtyConfirm` backed by `dialoguer::Confirm`).
+  4. Secrets resolved up-front via [`SecretsResolver`](../../../crates/qli-ext/src/secrets.rs) trait; fail closed on the first error. Phase 1F freezes the trait surface; Phase 1G fills in `OnePassword`/`Env` providers. Production `qli` binary uses a `StubResolver` that returns `ProviderUnavailable` for any `[[secrets]]` until 1G ships; manifests without secrets are unaffected.
+  5. `Start` audit event appended (`audit::append`, JSONL). Fields: `timestamp`, `user`, `group`, `extension`, `args`, `env_var_names` (names only).
+  6. `std::process::Command::spawn` (not `exec`); child PID registered in shared `DispatchSignals` so the binary's ctrlc handler can forward SIGTERM via `nix::sys::signal::kill` (workspace-level `unsafe_code = "forbid"` rules out `libc::kill` directly).
+  7. `child.wait()` blocks; stdin/stdout/stderr inherited transparently.
+  8. `Finish` (or `Interrupted`, if signals flagged the run) audit event with `exit_code` + `duration_ms`.
+- [x] Exit code propagates: `0..=255` → `ExitCode`, signal exits map to `128 + signo` on Unix.
+- [x] Ctrl+C / SIGTERM forwarded to child (SIGTERM); after child exits, `Interrupted` audit entry written and parent returns `128 + signo` (verified by `dispatch::tests::signal_forwarding_writes_interrupted_audit_and_exits_with_signal_code` — exits 143 with a `SIGTERM` audit record).
+- [x] Verify (manual smoke against `~/.local/share/qli/extensions/prod/`):
+    - No `QLI_ENV` → fails with `missing required env var QLI_ENV ... set it with: export QLI_ENV=prod` (✓).
+    - `QLI_ENV=prod` non-TTY without `--yes` → fails with `prod requires confirmation but stdin is not a TTY; pass --yes` (✓).
+    - `QLI_ENV=prod --yes` → banner prints, child runs, audit log has `start` + `finish` lines with `env_var_names` and no values (✓).
+    - `dev hello` (no guards) still runs normally (✓).
+    - Manifest with `[[secrets]]` fails with `secret providers ship in Phase 1G` until 1G lands (✓).
+- [x] Regression test (`crates/qli-ext/tests/secrets_never_leak.rs`): drives every guard path (happy, env_fail, confirm_decline, child_fail) under a helper subprocess with a distinct sentinel per scenario, asserts no sentinel appears in stdout / stderr / audit log. Status: green.
+- [x] Color-routing decision: keep the env-mutation shim ([`apply_color_choice`](../../../crates/qli/src/cli.rs)). Recorded in [context.md](qli-foundation-context.md#color-routing-decision-resolved-2026-05-02). Banner + confirm prompts in 1F print plain text + dialoguer's defaults, both already honour `NO_COLOR` / `CLICOLOR_FORCE` via `anstream`/`console`.
+- [x] **Fail-fast/fail-loud audit (post-1F polish, 2026-05-02).** Codified the diagnostic policy as a doc comment at the top of [`qli-ext::lib`](../../../crates/qli-ext/src/lib.rs) — four tiers: process-fatal (anyhow), dispatch-fatal (typed `DispatchError`), must-see warning (`eprintln!`, never `tracing::warn!` since `-q` would silence it), trace (`tracing`). Fixes applied to align the existing code with the policy:
+    - Resolved-value NUL check before `Command::env`: `dispatch::apply_secret_env` returns `DispatchError::SecretValueInvalid { env, reason }` (value omitted from message) instead of letting stdlib panic. Test: `dispatch::tests::nul_in_resolved_secret_value_is_rejected_before_spawn`.
+    - macOS `PIPE_BUF = 512` audit interleave: `audit::append` now takes an exclusive `nix::fcntl::Flock` for the write on Unix; the kernel releases the lock when the fd closes. Required adding `fs` to `nix`'s feature list in `qli-ext/Cargo.toml`.
+    - Signal-handler install failure ([`crates/qli/src/signal.rs::install`](../../../crates/qli/src/signal.rs)): switched from `tracing::warn!` to `eprintln!("warning: ... Ctrl+C will not forward to running extensions")` so `-q` can't hide the degraded behaviour.
+    - XDG data-dir resolution failure in [`crates/qli/src/main.rs`](../../../crates/qli/src/main.rs): replaced `paths::data_dir().map_or_else(|_| PathBuf::new(), …)` (silent swallow) with an explicit match that prints `warning: could not resolve XDG data dir (…); extensions are disabled. Set $XDG_DATA_HOME or $HOME and retry.` and proceeds with an empty discovery so built-in subcommands (`--version`, `completions`) still work.
+    - The Phase 1D parse-time `SecretSpec` validation entry above is the manifest-side half of this same fail-fast pass.
 
 ### 1G: Secrets providers
 
