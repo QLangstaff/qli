@@ -1,18 +1,29 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+//! Process-wide signal handling for the dispatcher.
+//!
+//! On SIGINT or SIGTERM we forward the signal to the running extension (if
+//! any) and mark the run as interrupted so the dispatcher writes an
+//! `interrupted` audit entry instead of `finish`. The shared
+//! [`qli_ext::DispatchSignals`] handle is what lets the handler thread and
+//! the dispatcher communicate without a global.
 
-/// Install a Ctrl+C / SIGTERM handler that flips the returned `AtomicBool`.
-///
-/// Long-running operations should poll this flag and exit cleanly with the
-/// appropriate exit code (130 for SIGINT, 143 for SIGTERM). The dispatcher
-/// (Phase 1F) forwards signals to spawned extensions and updates this flag.
-pub fn install() -> Arc<AtomicBool> {
-    let interrupted = Arc::new(AtomicBool::new(false));
-    let flag = Arc::clone(&interrupted);
+use std::sync::Arc;
+
+use qli_ext::DispatchSignals;
+
+/// Install a Ctrl+C / SIGTERM handler that forwards to any running child
+/// via `signals` and flags the run as interrupted. The same `Arc` is passed
+/// into [`qli_ext::DispatchOptions`] so the dispatcher can read the flag
+/// after `wait`.
+pub fn install() -> Arc<DispatchSignals> {
+    let signals = DispatchSignals::new();
+    let handler = Arc::clone(&signals);
     if let Err(err) = ctrlc::set_handler(move || {
-        flag.store(true, Ordering::Relaxed);
+        handler.on_signal();
     }) {
-        tracing::warn!("failed to install signal handler: {err}");
+        // Tier-3 must-see warning: a missing handler means Ctrl+C will not
+        // forward to running extensions. Don't route through `tracing` —
+        // `-q` would silence behaviour the user needs to know about.
+        eprintln!("warning: failed to install signal handler: {err}; Ctrl+C will not forward to running extensions");
     }
-    interrupted
+    signals
 }

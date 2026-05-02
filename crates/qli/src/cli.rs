@@ -21,6 +21,11 @@ pub struct Cli {
     #[arg(long = "color", value_enum, default_value_t = ColorChoice::Auto, global = true)]
     pub color: ColorChoice,
 
+    /// Assume yes for any guard prompt. Required for non-interactive runs
+    /// of extensions whose group manifest sets `confirm = true`.
+    #[arg(short = 'y', long = "yes", global = true)]
+    pub yes: bool,
+
     #[command(subcommand)]
     pub command: Option<Command>,
 }

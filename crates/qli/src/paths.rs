@@ -15,9 +15,9 @@
 
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, anyhow};
-use etcetera::BaseStrategy;
+use anyhow::{anyhow, Context, Result};
 use etcetera::base_strategy::Xdg;
+use etcetera::BaseStrategy;
 
 const APP: &str = "qli";
 
