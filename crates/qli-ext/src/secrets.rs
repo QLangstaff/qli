@@ -262,12 +262,18 @@ mod tests {
 
     // ----- Env provider --------------------------------------------------
     //
-    // Each test reads + sets a unique env var name to avoid races with
-    // other tests in the binary; we deliberately do *not* depend on
-    // `serial_test` here. The names share a `QLI_ENV_PROVIDER_TEST_` prefix
-    // so they're easy to grep for.
+    // Two layers of isolation, both deliberate:
+    //
+    //   1. Unique env var names per test (`QLI_ENV_PROVIDER_TEST_*`) — easy
+    //      to grep for, hard to collide accidentally.
+    //   2. `#[serial_test::serial]` — hard serialization across env-mutating
+    //      tests in this binary. Phase 1L added this layer because integration
+    //      tests under `tests/` (and `tests/common/mod.rs::XdgSandbox`) also
+    //      mutate env, and unique-name discipline can't protect against a
+    //      careless future test that forgets it.
 
     #[test]
+    #[serial_test::serial]
     fn env_provider_reads_reference_writes_env() {
         // Crucial: env != reference, so a future swap fails this test.
         let var = "QLI_ENV_PROVIDER_TEST_READ";
@@ -284,6 +290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn env_provider_errors_when_reference_unset() {
         let var = "QLI_ENV_PROVIDER_TEST_MISSING";
         std::env::remove_var(var);
@@ -309,6 +316,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn production_resolver_dispatches_per_spec_provider() {
         let var = "QLI_ENV_PROVIDER_TEST_DISPATCH";
         std::env::set_var(var, "DISPATCHED");

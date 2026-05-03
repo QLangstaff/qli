@@ -207,8 +207,10 @@ mod dirs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn expand_uses_process_env_first() {
         let mut defaults = HashMap::new();
         defaults.insert("QLI_TEST_AUDIT_VAR".into(), "from-defaults".into());
@@ -220,6 +222,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn expand_falls_back_to_defaults_when_env_unset() {
         let mut defaults = HashMap::new();
         defaults.insert("QLI_TEST_AUDIT_UNSET".into(), "from-defaults".into());
@@ -229,6 +232,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn expand_errors_on_unset_var_with_no_default() {
         let defaults = HashMap::new();
         std::env::remove_var("QLI_TEST_AUDIT_MISSING");

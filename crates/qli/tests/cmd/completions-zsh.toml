@@ -1,0 +1,11 @@
+bin.name = "qli"
+args = "completions zsh"
+status.code = 0
+# The zsh completion script body churns whenever clap regenerates it
+# (every clap minor bump tweaks helper functions). Snapshot just the
+# header line; `[..]` matches anything including the rest of the script.
+stdout = """
+#compdef qli
+...
+"""
+stderr = ""

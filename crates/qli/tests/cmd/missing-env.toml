@@ -1,0 +1,8 @@
+bin.name = "qli"
+args = "prod hello"
+status.code = 1
+stdout = ""
+stderr = """
+PROD — irreversible; verify before proceeding
+error: failed to run `prod hello`: missing required env var `QLI_ENV` (manifest expects `prod`); set it with: export QLI_ENV=prod
+"""

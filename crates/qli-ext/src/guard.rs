@@ -153,6 +153,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn check_requires_env_passes_when_match() {
         std::env::set_var("QLI_TEST_GUARD_OK", "yes");
         let m = manifest_with(None, false, &[("QLI_TEST_GUARD_OK", "yes")]);
@@ -161,6 +162,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn check_requires_env_errors_when_missing() {
         std::env::remove_var("QLI_TEST_GUARD_MISSING");
         let m = manifest_with(None, false, &[("QLI_TEST_GUARD_MISSING", "yes")]);
@@ -169,6 +171,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn check_requires_env_errors_when_mismatched() {
         std::env::set_var("QLI_TEST_GUARD_MISMATCH", "no");
         let m = manifest_with(None, false, &[("QLI_TEST_GUARD_MISMATCH", "yes")]);

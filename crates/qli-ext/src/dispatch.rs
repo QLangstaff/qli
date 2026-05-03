@@ -414,8 +414,11 @@ mod tests {
 
     #[test]
     #[cfg(unix)]
+    #[serial_test::serial]
     fn requires_env_blocks_spawn() {
-        // Use a unique env var per test to avoid races with other tests.
+        // Unique env var name per test (defense in depth) plus
+        // `#[serial]` for hard isolation against any future env-mutating
+        // sibling test in this binary.
         std::env::remove_var("QLI_DISPATCH_TEST_REQ");
         let tmp = tempfile::tempdir().unwrap();
         let script = tmp.path().join("hello");

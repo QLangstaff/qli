@@ -1,0 +1,24 @@
+bin.name = "qli"
+args = "completions --help"
+status.code = 0
+stdout = """
+Generate shell completions
+
+Usage: qli completions [OPTIONS] <SHELL>
+
+Arguments:
+  <SHELL>  Target shell [possible values: bash, elvish, fish, powershell, zsh]
+
+Options:
+  -v, --verbose...     Increase logging verbosity. -v info, -vv debug, -vvv trace. `RUST_LOG=<level>` overrides; `RUST_LOG=<target>=<level>` refines
+  -q, --quiet          Decrease logging (suppress info; errors still print)
+      --color <COLOR>  When to use colored output [default: auto] [possible values: auto, always, never]
+  -y, --yes            Assume yes for any guard prompt. Required for non-interactive runs of extensions whose group manifest sets `confirm = true`
+  -h, --help           Print help
+
+EXAMPLES:
+    qli completions bash > /usr/local/etc/bash_completion.d/qli
+    qli completions zsh  > "${fpath[1]}/_qli"
+    qli completions fish > ~/.config/fish/completions/qli.fish
+"""
+stderr = ""
