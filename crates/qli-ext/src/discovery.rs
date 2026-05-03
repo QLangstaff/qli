@@ -1,15 +1,22 @@
-//! Extension discovery: walk the XDG extensions root and PATH, build the
-//! group/extension table the dispatcher uses to route subcommands.
+//! Extension discovery: walk one or more on-disk extension roots and
+//! `PATH`, building the group/extension table the dispatcher uses to route
+//! subcommands.
 //!
 //! Discovery is pure: it returns a [`Discovery`] value plus a list of
 //! human-readable warnings. The CLI binary is responsible for printing the
 //! warnings to stderr. This keeps the library testable and lets callers
 //! decide their own logging policy.
 //!
-//! Phase 1E only knows about the XDG root. Phase 1H will fold in defaults
-//! embedded via `include_dir!` by adding a second [`Source`] with lower
-//! precedence — the rules already prefer XDG over PATH; the same precedence
-//! field will rank XDG > embedded > PATH.
+//! Phase 1H ranks two sources: the user's `$XDG_DATA_HOME/qli/extensions/`
+//! and the embedded-defaults cache materialized by [`crate::defaults`].
+//! [`discover`] takes the sources in priority order; the **first** source
+//! to claim a group name keeps it wholesale — its manifest *and* its
+//! extensions. Later sources' copies of that group are silently shadowed.
+//! Per-group (not per-extension) shadowing means a user who deletes
+//! `dev/hello` from XDG does not see it re-appear from embedded.
+//!
+//! `PATH` binaries are merged in last and only attach to groups that
+//! already exist in some on-disk source. They never define a new group.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -64,37 +71,70 @@ pub struct Extension {
 /// Where an extension's executable was found.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionOrigin {
-    /// `<extensions_root>/<group>/<name>` on disk.
+    /// `<xdg_root>/<group>/<name>` — user-installed, editable.
     Xdg,
+    /// Materialized from the binary's embedded defaults to a cache root
+    /// (`$XDG_CACHE_HOME/qli/embedded/<version>/<group>/<name>`).
+    Embedded,
     /// `qli-<group>-<name>` discovered on `PATH`.
     Path,
 }
 
-/// Walk `extensions_root` (typically `$XDG_DATA_HOME/qli/extensions/`) and
-/// `PATH`, returning every group + extension we can dispatch.
+impl ExtensionOrigin {
+    /// Canonical lowercase label. Used by both the human-facing `--help`
+    /// blurb (`xdg: /path/to/ext`) and the machine-readable `qli ext list` /
+    /// `qli ext which` output, so the two stay in sync.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ExtensionOrigin::Xdg => "xdg",
+            ExtensionOrigin::Embedded => "embedded",
+            ExtensionOrigin::Path => "path",
+        }
+    }
+}
+
+/// Walk every `(root, origin)` source in priority order, then merge
+/// matching `qli-<group>-<name>` binaries from `PATH`, returning every
+/// group + extension we can dispatch.
 ///
-/// Missing roots are not an error — they yield an empty `Discovery`. Bad
-/// manifests, non-executable files, reserved group names, malformed PATH
-/// binary names, and unknown-group PATH binaries each produce a warning and
-/// are skipped.
-pub fn discover(extensions_root: &Path) -> Discovery {
+/// Sources earlier in the slice win. A group claimed by source N is
+/// silently shadowed in sources N+1, N+2, ... — including its
+/// extensions, not just its manifest. This keeps "user owns it now"
+/// semantics: if XDG defines `dev` (even if `dev/hello` is missing), the
+/// embedded `dev/hello` does not bleed through.
+///
+/// Missing roots are not an error — they're skipped. Bad manifests,
+/// non-executable files, reserved group names, malformed PATH binary
+/// names, and unknown-group PATH binaries each produce a warning and are
+/// skipped.
+pub fn discover(sources: &[(&Path, ExtensionOrigin)]) -> Discovery {
     let mut warnings = Vec::new();
-    let mut groups = scan_xdg_root(extensions_root, &mut warnings);
+    let mut groups: BTreeMap<String, Group> = BTreeMap::new();
+    for (root, origin) in sources {
+        scan_root(root, *origin, &mut groups, &mut warnings);
+    }
     merge_path_binaries(&mut groups, &mut warnings);
     Discovery { groups, warnings }
 }
 
-fn scan_xdg_root(root: &Path, warnings: &mut Vec<String>) -> BTreeMap<String, Group> {
-    let mut groups = BTreeMap::new();
+/// Walk one source and add its groups to `groups`. Existing entries are
+/// not overwritten — earlier sources win.
+fn scan_root(
+    root: &Path,
+    origin: ExtensionOrigin,
+    groups: &mut BTreeMap<String, Group>,
+    warnings: &mut Vec<String>,
+) {
     let entries = match fs::read_dir(root) {
         Ok(it) => it,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return groups,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return,
         Err(err) => {
             warnings.push(format!(
                 "could not read extensions root {}: {err}",
                 root.display(),
             ));
-            return groups;
+            return;
         }
     };
 
@@ -117,11 +157,16 @@ fn scan_xdg_root(root: &Path, warnings: &mut Vec<String>) -> BTreeMap<String, Gr
             ));
             continue;
         }
+        if groups.contains_key(&name) {
+            // Earlier source already claimed this group; later sources
+            // do not contribute, even per-extension.
+            continue;
+        }
         let manifest_path = path.join("_manifest.toml");
         let Some(manifest) = load_manifest(&manifest_path, warnings) else {
             continue;
         };
-        let extensions = scan_group_executables(&path, &name, warnings);
+        let extensions = scan_group_executables(&path, &name, origin, warnings);
         groups.insert(
             name.clone(),
             Group {
@@ -132,7 +177,6 @@ fn scan_xdg_root(root: &Path, warnings: &mut Vec<String>) -> BTreeMap<String, Gr
             },
         );
     }
-    groups
 }
 
 fn load_manifest(manifest_path: &Path, warnings: &mut Vec<String>) -> Option<Manifest> {
@@ -162,6 +206,7 @@ fn load_manifest(manifest_path: &Path, warnings: &mut Vec<String>) -> Option<Man
 fn scan_group_executables(
     group_dir: &Path,
     group_name: &str,
+    origin: ExtensionOrigin,
     warnings: &mut Vec<String>,
 ) -> BTreeMap<String, Extension> {
     let mut extensions = BTreeMap::new();
@@ -209,7 +254,7 @@ fn scan_group_executables(
                 name,
                 group: group_name.to_owned(),
                 path,
-                origin: ExtensionOrigin::Xdg,
+                origin,
             },
         );
     }
@@ -346,10 +391,15 @@ mod tests {
         );
     }
 
+    fn xdg(root: &Path) -> [(&Path, ExtensionOrigin); 1] {
+        [(root, ExtensionOrigin::Xdg)]
+    }
+
     #[test]
     fn missing_root_is_empty() {
         let tmp = tempfile::tempdir().unwrap();
-        let d = discover(&tmp.path().join("does-not-exist"));
+        let missing = tmp.path().join("does-not-exist");
+        let d = discover(&xdg(&missing));
         assert!(d.groups.is_empty());
         assert!(d.warnings.is_empty());
     }
@@ -364,7 +414,7 @@ mod tests {
         write(&script, "#!/bin/sh\necho hi\n");
         chmod_exec(&script);
 
-        let d = discover(tmp.path());
+        let d = discover(&xdg(tmp.path()));
         let group = d.groups.get("dev").expect("dev group present");
         assert_eq!(group.manifest.description, "Dev tools");
         let ext = group.extensions.get("hello").expect("hello extension");
@@ -383,7 +433,7 @@ mod tests {
         write(&script, "#!/bin/sh\n");
         chmod_exec(&script);
 
-        let d = discover(tmp.path());
+        let d = discover(&xdg(tmp.path()));
         let group = d.groups.get("dev").unwrap();
         assert!(group.extensions.is_empty());
         assert!(d.warnings.is_empty());
@@ -397,7 +447,7 @@ mod tests {
         write_manifest(&group_dir, "Dev tools");
         write(&group_dir.join("hello"), "#!/bin/sh\n");
 
-        let d = discover(tmp.path());
+        let d = discover(&xdg(tmp.path()));
         let group = d.groups.get("dev").unwrap();
         assert!(group.extensions.is_empty());
         assert_eq!(d.warnings.len(), 1, "warnings: {:?}", d.warnings);
@@ -411,7 +461,7 @@ mod tests {
         let group_dir = tmp.path().join("dev");
         write(&group_dir.join("_manifest.toml"), "schema_version = 99\n");
 
-        let d = discover(tmp.path());
+        let d = discover(&xdg(tmp.path()));
         assert!(d.groups.is_empty());
         assert_eq!(d.warnings.len(), 1, "warnings: {:?}", d.warnings);
         assert!(d.warnings[0].contains("schema_version"));
@@ -421,7 +471,7 @@ mod tests {
     fn skips_subdir_without_manifest() {
         let tmp = tempfile::tempdir().unwrap();
         fs::create_dir_all(tmp.path().join("dev")).unwrap();
-        let d = discover(tmp.path());
+        let d = discover(&xdg(tmp.path()));
         assert!(d.groups.is_empty());
         assert!(d.warnings.is_empty());
     }
@@ -432,10 +482,111 @@ mod tests {
         let group_dir = tmp.path().join("completions");
         write_manifest(&group_dir, "Should be skipped");
 
-        let d = discover(tmp.path());
+        let d = discover(&xdg(tmp.path()));
         assert!(d.groups.is_empty());
         assert_eq!(d.warnings.len(), 1, "warnings: {:?}", d.warnings);
         assert!(d.warnings[0].contains("completions"));
         assert!(d.warnings[0].contains("built-in"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn embedded_visible_when_xdg_missing_group() {
+        // No XDG root has `dev`; embedded does. Embedded fills in.
+        let tmp = tempfile::tempdir().unwrap();
+        let xdg_root = tmp.path().join("xdg");
+        let embedded_root = tmp.path().join("embedded");
+        let group_dir = embedded_root.join("dev");
+        write_manifest(&group_dir, "Embedded dev");
+        let script = group_dir.join("hello");
+        write(&script, "#!/bin/sh\necho embedded\n");
+        chmod_exec(&script);
+
+        let sources: &[(&Path, ExtensionOrigin)] = &[
+            (xdg_root.as_path(), ExtensionOrigin::Xdg),
+            (embedded_root.as_path(), ExtensionOrigin::Embedded),
+        ];
+        let d = discover(sources);
+        let group = d.groups.get("dev").expect("dev group should be visible");
+        let ext = group.extensions.get("hello").unwrap();
+        assert_eq!(ext.origin, ExtensionOrigin::Embedded);
+        assert_eq!(ext.path, script);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn xdg_shadows_embedded_per_group() {
+        // Both sources define `dev`; XDG must win wholesale, including
+        // its (potentially different) extensions list.
+        let tmp = tempfile::tempdir().unwrap();
+        let xdg_root = tmp.path().join("xdg");
+        let embedded_root = tmp.path().join("embedded");
+
+        let xdg_dev = xdg_root.join("dev");
+        write_manifest(&xdg_dev, "User-edited dev");
+        let xdg_script = xdg_dev.join("hello");
+        write(&xdg_script, "#!/bin/sh\necho user\n");
+        chmod_exec(&xdg_script);
+
+        let embedded_dev = embedded_root.join("dev");
+        write_manifest(&embedded_dev, "Embedded dev");
+        let embedded_script = embedded_dev.join("hello");
+        write(&embedded_script, "#!/bin/sh\necho embedded\n");
+        chmod_exec(&embedded_script);
+        // Add a second extension in embedded that XDG doesn't have. The
+        // shadowing rule means it must NOT bleed through.
+        let embedded_extra = embedded_dev.join("only-embedded");
+        write(&embedded_extra, "#!/bin/sh\necho only-embedded\n");
+        chmod_exec(&embedded_extra);
+
+        let sources: &[(&Path, ExtensionOrigin)] = &[
+            (xdg_root.as_path(), ExtensionOrigin::Xdg),
+            (embedded_root.as_path(), ExtensionOrigin::Embedded),
+        ];
+        let d = discover(sources);
+        let group = d.groups.get("dev").unwrap();
+        assert_eq!(group.manifest.description, "User-edited dev");
+        let ext = group.extensions.get("hello").unwrap();
+        assert_eq!(ext.origin, ExtensionOrigin::Xdg);
+        assert_eq!(ext.path, xdg_script);
+        assert!(
+            !group.extensions.contains_key("only-embedded"),
+            "embedded extras must not bleed into a group XDG owns",
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn distinct_groups_layer_across_sources() {
+        // XDG defines `dev`; embedded defines `prod`. Both should appear.
+        let tmp = tempfile::tempdir().unwrap();
+        let xdg_root = tmp.path().join("xdg");
+        let embedded_root = tmp.path().join("embedded");
+
+        let xdg_dev = xdg_root.join("dev");
+        write_manifest(&xdg_dev, "Dev");
+        let xdg_script = xdg_dev.join("hello");
+        write(&xdg_script, "#!/bin/sh\n");
+        chmod_exec(&xdg_script);
+
+        let emb_prod = embedded_root.join("prod");
+        write_manifest(&emb_prod, "Prod");
+        let emb_script = emb_prod.join("hello");
+        write(&emb_script, "#!/bin/sh\n");
+        chmod_exec(&emb_script);
+
+        let sources: &[(&Path, ExtensionOrigin)] = &[
+            (xdg_root.as_path(), ExtensionOrigin::Xdg),
+            (embedded_root.as_path(), ExtensionOrigin::Embedded),
+        ];
+        let d = discover(sources);
+        assert_eq!(
+            d.groups.get("dev").unwrap().extensions["hello"].origin,
+            ExtensionOrigin::Xdg
+        );
+        assert_eq!(
+            d.groups.get("prod").unwrap().extensions["hello"].origin,
+            ExtensionOrigin::Embedded
+        );
     }
 }

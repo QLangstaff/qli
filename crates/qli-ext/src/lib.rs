@@ -32,14 +32,18 @@
 //! exec-time) so the error points at the source, not the symptom.
 
 pub mod audit;
+pub mod defaults;
 pub mod discovery;
 pub mod dispatch;
 pub mod guard;
 pub mod manifest;
 pub mod secrets;
 
+pub use defaults::{materialize_to, MaterializeError, MaterializeStats, DEFAULTS};
 pub use discovery::{discover, Discovery, Extension, ExtensionOrigin, Group};
 pub use dispatch::{DispatchError, DispatchOptions, DispatchSignals};
 pub use guard::{tty_confirm, ConfirmPrompt, GuardError, TtyConfirm};
 pub use manifest::{Manifest, ManifestError, SecretProvider, SecretSpec, CURRENT_SCHEMA_VERSION};
-pub use secrets::{ResolvedSecret, SecretsError, SecretsResolver, TestResolver};
+pub use secrets::{
+    ProductionResolver, ResolvedSecret, SecretsError, SecretsResolver, TestResolver,
+};

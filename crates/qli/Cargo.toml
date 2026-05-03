@@ -17,6 +17,7 @@ anstyle = "1"
 anyhow = "1"
 ctrlc = { version = "3", features = ["termination"] }
 etcetera = "0.10"
+serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

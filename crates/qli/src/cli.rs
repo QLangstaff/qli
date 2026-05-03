@@ -38,6 +38,44 @@ pub enum Command {
         /// Target shell.
         shell: clap_complete::Shell,
     },
+    /// Manage extensions.
+    Ext {
+        #[command(subcommand)]
+        action: ExtAction,
+    },
+    /// Update qli to the latest release. (Stub — full implementation in Phase 1.5E.)
+    SelfUpdate {
+        /// Emit machine-readable JSON instead of the human message.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExtAction {
+    /// List every discovered extension with its group, origin, and resolved path.
+    List {
+        /// Emit one JSON object per extension instead of the tab-separated form.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Print the resolved path to a single extension.
+    Which {
+        /// Group the extension belongs to (e.g. `dev`, `prod`).
+        group: String,
+        /// Extension name within the group (e.g. `hello`).
+        name: String,
+        /// Emit a JSON object with group/name/origin/path instead of just the path.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Copy the binary's embedded default extensions into
+    /// `$XDG_DATA_HOME/qli/extensions/` so they're editable.
+    InstallDefaults {
+        /// Overwrite files that already exist.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 const ROOT_AFTER_HELP: &str = "\

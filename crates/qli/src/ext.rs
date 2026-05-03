@@ -9,7 +9,7 @@
 use std::ffi::OsString;
 
 use clap::{Arg, Command};
-use qli_ext::{Extension, ExtensionOrigin, Group};
+use qli_ext::{Extension, Group};
 
 pub fn build_group_command(group: &Group) -> Command {
     let mut cmd = Command::new(leak_str(&group.name))
@@ -45,9 +45,5 @@ fn leak_str(s: &str) -> &'static str {
 }
 
 fn describe(ext: &Extension) -> String {
-    let origin = match ext.origin {
-        ExtensionOrigin::Xdg => "XDG",
-        ExtensionOrigin::Path => "PATH",
-    };
-    format!("{origin}: {}", ext.path.display())
+    format!("{}: {}", ext.origin.as_str(), ext.path.display())
 }

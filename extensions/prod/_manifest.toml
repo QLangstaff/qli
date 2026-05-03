@@ -1,0 +1,8 @@
+schema_version = 1
+description = "Production operations — gated by env, confirm, and audit"
+banner = "PROD — irreversible; verify before proceeding"
+confirm = true
+audit_log = "$XDG_STATE_HOME/qli/prod-audit.log"
+
+[requires_env]
+QLI_ENV = "prod"
