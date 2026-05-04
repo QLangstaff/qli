@@ -1,7 +1,14 @@
 # Context: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-05-03 (Phase 1L complete pending CI; Push B tests added)
+**Last Updated:** 2026-05-03 (Phase 1 complete; acceptance gate green; CI green post-1L)
 
 ## SESSION PROGRESS
+
+- **2026-05-03 — Phase 1 acceptance gate green.** Built `target/release/qli` and copied it alone into a tempdir under ephemeral `XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`XDG_STATE_HOME`/`XDG_CACHE_HOME` + `HOME`; ran every acceptance bullet against that binary. CI also green post-push (runs [25292961221](https://github.com/QLangstaff/qli/actions/runs/25292961221) and [25292968387](https://github.com/QLangstaff/qli/actions/runs/25292968387) both pass all 8 jobs).
+    - **Bullet 1.** `qli --help` lists dev/org/prod from the embedded layer; `qli dev hello`, `qli org hello`, `QLI_ENV=prod qli --yes prod hello` all run end-to-end with the prod banner + a clean two-line `start`/`finish` audit JSONL at `$XDG_STATE_HOME/qli/prod-audit.log`.
+    - **Bullet 2.** `qli ext install-defaults` wrote 6 files (3 manifests + 3 scripts), skipped 0; dropping `dev/greet` (chmod +x) made it appear in `qli dev --help` next to `hello` and `qli dev greet world` echoed the forwarded arg.
+    - **Bullet 3.** `qli prod fake-cmd` produces clap's generic-error template: `error: unrecognized subcommand 'fake-cmd'` + `Usage: qli prod [OPTIONS] [COMMAND]` + `For more information, try '--help'.` — same shape as `git foo` / `cargo foo`. Brief detour during evaluation: I initially flagged this as ambiguous because the literal `without QLI_ENV` clause is a no-op (parse failure short-circuits the `requires_env` guard) and clap renders no tip-line for far-from-anything typos. After re-reading, the bullet's "errors clearly with a suggestion" intent is satisfied by the existing template — it scopes usage to `qli prod` and points at `--help`. Adjacent paths verified for completeness: `qli prod hellp` → clap tip `'hello', 'help'`; `qli prod hello` (valid extension, `QLI_ENV` unset) → exit 1 with `set it with: export QLI_ENV=prod`. **Process lesson**: a single ambiguous bullet doesn't need a planning detour — if the implementation matches industry-standard behaviour (git / cargo / clap defaults), accept and move on rather than re-litigating.
+    - **Bullet 4.** CI green on the post-1L push (link above).
+    - **Tooling note carried over from 1L Push B**: `cargo build --release -p qli` finished in 2.71s incremental on the cached tree.
 
 - **2026-05-03 — Phase 1L Push B complete (consumer tests: 2 of 5 tasks).** Tasks 4 (trycmd CLI snapshots) and 5 (assert_cmd dispatcher integration tests) shipped on top of the Push A harness. All five 1L task items now done; Phase 1 acceptance can be evaluated next.
     - **Dispatcher integration tests in [`crates/qli/tests/dispatcher.rs`](../../../crates/qli/tests/dispatcher.rs)** (6 tests) covering happy path + one failure per guard + SIGINT integration:
