@@ -151,12 +151,16 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 
 ### 1.5A: cargo-dist
 
-- [ ] Run `cargo dist init`, accept config, commit generated `.github/workflows/release.yml` and `dist-workspace.toml` (or whatever `cargo-dist` calls it now).
-- [ ] Configure targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
-- [ ] Configure installers: shell installer (`curl | sh`), Homebrew formula, msi for Windows (optional).
-- [ ] **Verify C toolchain on every target**: tree-sitter grammars are C code that compiles per-target. cargo-dist's default GitHub-hosted runners include C toolchains, but Windows MSVC and Linux musl can be flaky. On the first test release, confirm every target binary actually builds (not just queues).
-- [ ] Tag a `v0.1.0` test release; verify all target binaries build and a release is created.
-- [ ] Verify: `curl -LsSf https://github.com/QLangstaff/qli/releases/latest/download/qli-installer.sh | sh` installs `qli` on macOS.
+- [x] Repo flipped to public (2026-05-04) — unblocks the curl-installer verify and 1K branch protection. cargo-dist is alive and well at `axodotdev/cargo-dist` v0.31.0; the Astral fork was archived Dec 2025 in favour of upstream. Tool installed via `brew install axodotdev/tap/cargo-dist` (binary is `dist`).
+- [x] `dist init --yes` non-interactively with explicit `--target` × 5, `--installer shell`, `--installer homebrew`, `--ci github`, `--hosting github`. Produced [`dist-workspace.toml`](../../../dist-workspace.toml) + [`.github/workflows/release.yml`](../../../.github/workflows/release.yml); also added `[profile.dist]` (release + thin LTO) to root [`Cargo.toml`](../../../Cargo.toml).
+- [x] Targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` (in [`dist-workspace.toml`](../../../dist-workspace.toml)).
+- [x] Installers: shell + Homebrew formula. **MSI deferred** (the plan marks it optional; skipping reduces moving parts on first release; revisit when there's actual Windows demand).
+- [x] Added `homepage = "https://github.com/QLangstaff/qli"` to `[workspace.package]` and `homepage.workspace = true` to qli's package — silences the Homebrew "no homepage" warning that dist emits otherwise.
+- [x] Pre-flight: `dist plan` warning-free; `cargo build --workspace`, `cargo test --workspace` (73 tests), `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all -- --check`, `cargo build --release --workspace` all clean.
+- [ ] **Verify C toolchain on every target**: tree-sitter grammars are C code that compiles per-target. cargo-dist's default GitHub-hosted runners include C toolchains, but Windows MSVC and Linux musl can be flaky. On the first test release, confirm every target binary actually builds (not just queues). _Note: tree-sitter grammars don't land until Phase 2; the v0.1.0 test release exercises the cross-compile pipeline only against the current binary, which has no C deps. The real C-toolchain test fires when Phase 2 ships its first grammar — track as a Phase 2 verify gate._
+- [ ] Tag a `v0.1.0` test release; verify all target binaries build and a release is created. _Pending user approval: tagging is high-blast-radius (creates a public GitHub release, triggers cross-compile workflow, is hard to reverse). Workspace version bump 0.0.0 → 0.1.0 is a one-line change in [`Cargo.toml`](../../../Cargo.toml) and lands in the same push as the tag._
+- [ ] Verify: `curl -LsSf https://github.com/QLangstaff/qli/releases/latest/download/qli-installer.sh | sh` installs `qli` on macOS. _Blocked on the tag step above._
+- [ ] Re-enable 1K branch protection now that the repo is public (carries over from the 1K deferral note). One-shot `gh api repos/QLangstaff/qli/branches/main/protection --method PUT` with the 8 status-check contexts. Schedule for after the v0.1.0 release workflow runs once, so the new `release.yml` jobs can be considered for the required-checks list (or explicitly excluded).
 
 ### 1.5B: Homebrew tap
 
