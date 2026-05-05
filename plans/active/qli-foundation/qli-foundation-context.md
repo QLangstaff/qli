@@ -1,7 +1,42 @@
 # Context: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-05-04 (Phase 1.5A in flight: dist setup committed pending; tag step needs user approval)
+**Last Updated:** 2026-05-04 (Phase 1.5B in flight: tap repo created, dist config staged for commit; v0.1.1 trigger pending)
 
 ## SESSION PROGRESS
+
+- **2026-05-04 — Phase 1.5B in flight: tap repo created, dist config staged, PAT + secret live; v0.1.1 trigger release pending.**
+    - **Tap repo created**: [`QLangstaff/homebrew-qli`](https://github.com/QLangstaff/homebrew-qli) — public, README + MIT, default branch `main` (`gh repo create ... --public --add-readme --license MIT`). The `homebrew-` prefix is mandatory for Homebrew's auto-tap-resolution from the three-segment `<user>/<repo>/<formula>` install form.
+    - **dist config additions** in [`dist-workspace.toml`](../../../dist-workspace.toml): `tap = "QLangstaff/homebrew-qli"` + `publish-jobs = ["homebrew"]`. Both keys live in the global `[dist]` table (workspace-level, not installer-nested). `publish-jobs` is the actually-publish switch — without it the formula is built as a release artifact (1.5A state) but never pushed. Re-ran `dist generate` to regenerate [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) — new `publish-homebrew-formula` job uses `${{ secrets.HOMEBREW_TAP_TOKEN }}` to check out the tap repo, downloads `qli.rb` artifact, runs `brew style --fix`, commits to `Formula/qli.rb`, pushes. `announce` job now waits on it. **CRITICAL**: hand-editing `release.yml` would have failed dist's CI consistency check (`dist generate --check`); always regenerate via `dist generate` after config edits.
+    - **PAT + secret** (user did this part): fine-grained PAT scoped to `QLangstaff/homebrew-qli` only, Contents: read-and-write + Metadata: read. Stored as `HOMEBREW_TAP_TOKEN` repo secret on `QLangstaff/qli`. **Fine-grained over classic-`repo` scope deliberate** — advisor flagged that classic `repo` grants write across the entire account; fine-grained scoped to one repo is meaningfully tighter. The advisor's escalation here was right and saved over-broad scope from being deployed silently.
+    - **v0.1.0 will NOT appear in the tap.** Tap-publish jobs only fire on releases AFTER the config landed; the v0.1.0 release predates the tap config. Anyone who taps before v0.1.1 ships sees an empty `Formula/` directory.
+    - **Bundling lesson from 1.5A baked into 1.5B trigger plan**: the v0.1.1 commit MUST include the [`crates/qli/tests/cmd/version.toml`](../../../crates/qli/tests/cmd/version.toml) snapshot bump (`qli 0.1.0` → `qli 0.1.1`) AND a local `cargo test -p qli --test cli` before pushing. Not just `cargo build`. This is the muscle-memory follow-through on the lesson logged in the prior 1.5A entry; the next push is the test of whether it stuck.
+    - **Open**: user pushes the staged config commit (release.yml + dist-workspace.toml + plan docs) → CI on main goes green → I prep the v0.1.1 bundle (Cargo.toml workspace bump + qli-ext path-dep version + version.toml snapshot, test locally) → user commits + tags v0.1.1 + pushes → release workflow lands the formula in `homebrew-qli/Formula/qli.rb` → `brew untap` (defensive) + `brew install QLangstaff/qli/qli` + `qli --version` verify.
+
+- **2026-05-04 — Phase 1.5A complete: v0.1.0 release published end-to-end.**
+    - **Final state**: [`v0.1.0` → `b2c56ad`](https://github.com/QLangstaff/qli/releases/tag/v0.1.0), 16 assets (5 platform binaries + their `.sha256` siblings, `qli-installer.sh`, `qli.rb`, `sha256.sum`, `source.tar.gz` + sibling, `dist-manifest.json`). Curl installer verified on macOS arm64: detected platform → downloaded tarball → installed `qli` to `~/.cargo/bin` → `qli --version` reports `qli 0.1.0` → `qli --help` renders root help with embedded `dev`/`prod`/`org` visible. End-to-end pipeline is real.
+    - **Snapshot incident** (worth capturing because it's recurring-by-design): the version bump 0.0.0 → 0.1.0 invalidated [`crates/qli/tests/cmd/version.toml`](../../../crates/qli/tests/cmd/version.toml), which carried `qli 0.0.0` as a literal exact-match snapshot per the 1L design choice. Local pre-flight only ran `cargo build` + `dist plan` after the bump — should have re-run `cargo test`. Caught by `ci.yml` on first push of the v0.1.0 commit (`5974238`); fix in `b2c56ad` (`qli 0.0.0` → `qli 0.1.0`). **Whack-a-mole pattern**: every release bump will hit this same failure; mitigation is `TRYCMD=overwrite cargo test -p qli --test cli` (one-shot regenerates) OR a future redesign to use `qli [..]` wildcard at the cost of losing the exact-match assertion. Not changed in 1.5A — the 1L author's exact-match choice was deliberate per [tasks.md → 1L](../qli-foundation/qli-foundation-tasks.md). **Process lesson**: after any version bump (or any change touching CLI output that snapshots cover), run the full `cargo test` not just `cargo build`.
+    - **Retag decision**: deleted v0.1.0 release + remote tag (`gh release delete v0.1.0 --yes --cleanup-tag`), re-tagged on `b2c56ad` (the green commit). Initially defaulted to "don't move published tags" by reflex; reconsidered because (a) v0.1.0 was 15 minutes old, (b) public repo with zero downstream consumers (1.5B Homebrew tap doesn't exist; 1.5C crates.io publish hasn't happened; no users), (c) the retag-cost grows monotonically with time and is at lifetime minimum at this moment, (d) establishing "tagged commits are green" as a norm at v0.1.0 is much cheaper than enforcing it for the first time at v0.5.0. The reflex caveat against force-moving tags applies in adult-stakes contexts (downstream consumers exist, SHAs are bookmarked elsewhere), none of which were present here. **Project norm to consider**: tagged commits must be green. Worth promoting to a release-checklist item once one exists.
+    - **C-toolchain caveat acknowledged in plan**: 5 targets compiled, but the binary has **zero C dependencies today**. Tree-sitter (C code) lands in Phase 2. The "verify C toolchain on every target" 1.5A bullet is a real test only after Phase 2 ships a grammar (2C/2D). Marked deferred with that explanation in [tasks.md → 1.5A](../qli-foundation/qli-foundation-tasks.md#1.5a-cargo-dist).
+    - **dist 0.31.0 uses `actions/checkout@v6`, `actions/upload-artifact@v6`, `actions/download-artifact@v7`** — Node 24, side-effect-resolves the 1K open follow-up about Node 20 deprecation for the release workflow only. `ci.yml` still uses checkout@v4 (separate item; not bundled into 1.5A).
+    - **1K branch protection landed** (was deferred at 1K because private repos require GitHub Pro). Applied via `gh api repos/QLangstaff/qli/branches/main/protection --method PUT` with this body:
+        ```json
+        {
+          "required_status_checks": {
+            "strict": true,
+            "contexts": [
+              "rustfmt", "clippy (ubuntu-latest)", "clippy (macos-14)",
+              "test (ubuntu-latest)", "test (macos-14)",
+              "build (ubuntu-latest)", "build (macos-14)",
+              "cargo-audit", "plan"
+            ]
+          },
+          "enforce_admins": false,
+          "required_pull_request_reviews": null,
+          "restrictions": null,
+          "allow_force_pushes": false,
+          "allow_deletions": false
+        }
+        ```
+      9 required checks (8 ci.yml + `plan` from release.yml). `enforce_admins: false` is a deliberate posture choice: rules apply only to non-admin contributors; the owner keeps the direct-push-to-main flow they've been using throughout this project. Branch protection is essentially dormant for the solo author until a collaborator joins. The protection IS real for any future PR. Caveat: `enforce_admins: false` means even `allow_force_pushes: false` is bypassable by admin — the protection guards against accident from non-admins, not malice from admin.
 
 - **2026-05-04 — Phase 1.5A in flight: cargo-dist setup committed pending; tag deferred for user approval.**
     - **Repo flipped to public** (`gh repo edit QLangstaff/qli --visibility public --accept-visibility-change-consequences`). Pre-flip safety scan: no tracked `.env`/PEM/key files; the only `secret`/`token`-name matches were the deliberate `secrets.rs` module + `secrets_never_leak.rs` test + manifest-spec docs. Public unlocks (a) the curl-installer verify step in 1.5A, (b) Homebrew tap visibility for 1.5B, and (c) the 1K branch-protection deferral (now actionable).
