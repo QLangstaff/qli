@@ -9,7 +9,7 @@ homepage.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-qli-ext = { path = "../qli-ext", version = "0.0.0" }
+qli-ext = { path = "../qli-ext", version = "0.1.0" }
 
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
