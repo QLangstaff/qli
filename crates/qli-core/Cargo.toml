@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+keywords = ["qli", "code-analysis", "engine", "polyglot", "tree-sitter"]
+categories = ["development-tools"]
 
 [dev-dependencies]
 cargo_metadata = "0.18"

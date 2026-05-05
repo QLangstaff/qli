@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+keywords = ["qli", "formatter", "lsp", "scip", "jsonl"]
+categories = ["development-tools"]
 
 [lints]
 workspace = true

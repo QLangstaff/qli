@@ -19,17 +19,17 @@
 //! after writing it. Without that, discovery's `is_executable` filter
 //! would warn-and-skip every shipped script.
 //!
-//! ## Crate-publish caveat (Phase 1.5C concern)
+//! ## Crate-publish (resolved in Phase 1.5C via symlink)
 //!
 //! [`include_dir!`] resolves the path at compile time relative to
-//! `$CARGO_MANIFEST_DIR`. This crate sits at `crates/qli-ext/`, so the
-//! macro reaches up to the workspace's `extensions/` directory via
-//! `../../extensions`. That works for workspace builds but **`cargo
-//! publish` strips files outside the crate directory**, so the published
-//! `qli-ext` would compile with an empty [`DEFAULTS`]. Phase 1.5C
-//! (crates.io publishing) needs to either copy `extensions/` into
-//! `crates/qli-ext/` at publish time, configure `Cargo.toml`'s `include`
-//! field, or move the canonical location into the crate.
+//! `$CARGO_MANIFEST_DIR`, and `cargo publish` strips files outside the
+//! crate directory — so a path like `../../extensions` would compile
+//! locally but produce an empty [`DEFAULTS`] in the published tarball.
+//! Resolution: `crates/qli-ext/extensions` is a symlink to the
+//! workspace-root `extensions/` directory. `cargo package` dereferences
+//! the symlink and bundles the actual files into the crate tarball, so
+//! the published `qli-ext` is self-contained while the workspace root
+//! stays the canonical edit location.
 
 use std::fs;
 use std::io;
@@ -39,7 +39,7 @@ use include_dir::{include_dir, Dir, DirEntry};
 use thiserror::Error;
 
 /// Compile-time snapshot of the repo's `extensions/` tree.
-pub static DEFAULTS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../extensions");
+pub static DEFAULTS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/extensions");
 
 /// Counters from a [`materialize_to`] run. Useful for log lines and
 /// `install-defaults` output ("wrote N files, skipped M existing").
