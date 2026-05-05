@@ -2,6 +2,6 @@ bin.name = "qli"
 args = "--version"
 status.code = 0
 stdout = """
-qli 0.1.0
+qli 0.1.1
 """
 stderr = ""

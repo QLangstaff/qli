@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "qli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anstream 0.6.21",
  "anstyle",
@@ -944,14 +944,14 @@ dependencies = [
 
 [[package]]
 name = "qli-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cargo_metadata",
 ]
 
 [[package]]
 name = "qli-ext"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "dialoguer",
@@ -968,11 +968,11 @@ dependencies = [
 
 [[package]]
 name = "qli-lang"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "qli-outputs"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "quote"
