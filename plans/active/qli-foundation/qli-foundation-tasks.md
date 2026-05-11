@@ -171,13 +171,14 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 
 ### 1.5C: crates.io (publish all workspace crates)
 
-- [ ] Set up crates.io account, add API token to GitHub repo secrets.
-- [ ] Adopt `release-plz` (or write a custom script) that publishes workspace crates in topological order on tag: leaf crates first (`qli-core`, `qli-outputs`), then `qli-lang`, then language adapters, then `qli-ext`, finally `qli` (the binary).
-- [ ] Configure each crate's `Cargo.toml` with `description`, `repository`, `license`, `keywords`, `categories` — required for crates.io.
-- [ ] All workspace crates share `version` from `[workspace.package]`; bumps are atomic.
-- [ ] Document the release procedure in `RELEASING.md`: tag → CI publishes all crates in order → `cargo install qli` works from registry.
-- [ ] Test publish to crates.io with `0.1.0` for every crate; verify topological order succeeds.
-- [ ] Verify: `cargo install qli` on a clean machine (no repo, no path deps) installs the binary; running `qli --version` matches the published version.
+- [x] crates.io account already in place from Phase 0 placeholder-reservation flow. No GitHub repo secret needed — publish runs locally via `scripts/publish-workspace.sh` against the user's `cargo login` token (decided this session; see context.md).
+- [x] **Custom script over `release-plz`**: `scripts/publish-workspace.sh` (local, gitignored) — topological publish (tier 1: `qli-core`, `qli-ext`, `qli-lang`, `qli-outputs`; 60s wait; tier 2: `qli`), idempotent skip-check against crates.io per (name, version), `--dry-run` mode adds `--allow-dirty` so you can validate mid-development. `release-plz` deferred — adopt later if multi-author or merge-queue scale demands it.
+- [x] Per-crate `Cargo.toml` has `description`, `repository` (workspace-inherited), `license` (workspace-inherited), `keywords` (5 each), `categories` (1-2 each, all validated against crates.io's slug list).
+- [x] All workspace crates share `version` from `[workspace.package]`; bumps remain atomic (proven again in 1.5A/1.5B at v0.1.0 and v0.1.1).
+- [x] Release procedure documented in `RELEASING.md` (gitignored, local-only per user preference) — covers pre-flight version-bump + snapshot fix bundle, tag-driven cross-compile + Homebrew, local crates.io publish, three-path verify, troubleshooting.
+- [x] Test publish at v0.1.1 (not v0.1.0 — that version of `qli` is permanently owned by the previous registrant's project; see context.md for the qli@0.1.0-inheritance situation). All 5 workspace crates published successfully via `scripts/publish-workspace.sh` 2026-05-06. `qli-ext` packaged with the symlinked `extensions/` self-contained (22 files, 40KiB compressed).
+- [x] **Verify**: `cargo install qli --version 0.1.1 --locked --force` on this machine — `cargo` pulled `qli-ext v0.1.1` from crates.io, compiled from source, placed binary at `~/.cargo/bin/qli`. `qli --version` reports `qli 0.1.1`. Three install paths now real: `cargo install`, `brew install QLangstaff/qli/qli`, `curl | sh`.
+- [x] **Resolved Phase 1H crate-publish caveat**: `crates/qli-ext/extensions` symlink (`-> ../../extensions`) lets `cargo package` bundle the extension defaults into the published tarball while keeping the workspace root as canonical edit location. Module doc-comment in `defaults.rs` updated to reflect the resolution.
 
 ### 1.5D: Claude Code plugin
 
