@@ -1,7 +1,28 @@
 # Context: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-05-06 (Phase 1.5C complete: 5 workspace crates published to crates.io at 0.1.1; three install paths now real)
+**Last Updated:** 2026-05-13 (deferred items closed from primary-source research: marketplace.json field set locked, Rust MCP SDK locked to `rmcp` 1.6+, `.mcp.json` filename + plugin cache dir naming confirmed, 1.5F version-bump exception noted)
 
 ## SESSION PROGRESS
+
+- **2026-05-13 — Deferred research closed.** Primary-source pass (plugins-reference, plugin-marketplaces, discover-plugins, `~/.claude/plugins/{installed,known}_*.json`, `github.com/modelcontextprotocol/rust-sdk`) locked the marketplace.json field set, the Rust MCP SDK (`rmcp` 1.6+), the `.mcp.json` filename, and the marketplace cache-dir naming pattern — see [External Documentation](#external-documentation) and [Design Decisions](#architectural-decisions) for the locked specs. Also: 1.5F does NOT bump plugin version (binary surface unchanged).
+
+- **2026-05-12 — Plan follow-up: plugin version cadence documented; verify steps added; 1.5F (distribution) added; Phase 5 prerequisite tightened.** Review of the 2026-05-11 restructure surfaced four gaps: (1) per-phase plugin-update bullets had no verify step (1.5D shipped with one; subsequent phases inherited the format but not the discipline), (2) `plugin.json` `version` cadence vs. SKILL.md version pin was open ("revisit if friction"), (3) plugin install-distribution model named two paths in the README (`claude --plugin-dir` + `/plugin install`) but only the dev path was backed by a tasks.md item, (4) Phase 5 prerequisite listed `Phase 4C` rather than `Phase 4 complete` (correct via the existing Phase 4 → Phase 2I chain, but tighter to spell out).
+    - **Plugin version cadence**: documented in Design Decisions / Architectural decisions as "tracks the qli binary version" — `plugin.json` + SKILL.md "Targets qli vX.Y.Z" + README "Targets qli vX.Y.Z" all bump together on every qli release shipping user-facing surface. Rationale: slash commands assume a specific CLI surface; mismatch breaks `$ARGUMENTS` dispatch when subcommands or flags rename. Each plugin-update bullet (1.5E, 2F, 2G, 3B, 4C) now explicitly references this decision and lists the three pins to bump.
+    - **Verify steps**: every plugin-update bullet now ends with a verify line. For phases adding new slash commands (2F, 2G, 4C): "verify in fresh `claude --plugin-dir ./claude-code-plugin` session that `/qli:<new-command> <args>` dispatches". For SKILL.md-only updates (1.5E, 3B): "verify the existing slash commands still dispatch and the updated SKILL.md content renders" (catches frontmatter/YAML breakage from the edit).
+    - **New 1.5F sub-phase: Plugin marketplace (regular-use install path).** Install-distribution model locked in [Design Decisions](#architectural-decisions): qli repo serves as its own Claude Code plugin marketplace via a repo-root `/.claude-plugin/marketplace.json` declaring marketplace `qli-plugins` with the single plugin entry `qli` sourced from `./claude-code-plugin`. Pattern matches Anthropic's own `anthropics/claude-plugins-public` (`source: "./plugins/<name>"` for co-located plugins, no SHA pinning). 1.5F tasks execute the decision (schema cross-check, manifest write, README update, end-to-end verify). README's current aspirational "Refer to the docs" placeholder gets replaced by the two-step `/plugin marketplace add QLangstaff/qli` + `/plugin install qli@qli-plugins`.
+    - **Phase 1.5 acceptance updated** to include external install verify (the path 1.5F produces).
+    - **Phase 5 prerequisite tightened** from "Phase 2A + 2G + 4C" to "Phase 4 complete (Phase 4 already lists Phase 2I as a prerequisite, so `qli analyze` output includes def+ref symbols by the time Phase 5 designs `qli_analyze` MCP tool schemas)". Same effective ordering; less room for "we could skip Phase 4D and start Phase 5" misreadings.
+
+- **2026-05-11 — Plan restructure: Phase 1.5D → scaffolding-only; MCP → new Phase 5; plugin updates iterative through 2G/4C.** Recognized after 1.5D.1 completed that the next sub-phases (1.5D.2 MCP server, 1.5D.3 tool schemas with `qli_analyze`/`qli_index`, 1.5D.4 integration test, 1.5D.5 mcp.json) all depend on engine surfaces that don't ship until Phase 2G (`qli analyze`) and Phase 4C (`qli index`). Building MCP today would either ship a one-tool server (`qli_ext_list` only) or freeze tool schemas blind against imagined output.
+    - **1.5D collapsed**: tasks.md now has a single 1.5D section ("Claude Code plugin scaffolding (skill + slash commands)") with the four shipped bullets (plugin.json, slash commands, README.md, end-to-end verify). Sub-numbering removed.
+    - **New Phase 5** at the end of tasks.md (after Phase 4 SCIP) covers MCP server skeleton (5A), tool schemas (5B), integration test (5C), `.mcp.json` + install docs (5D), and Phase 5 acceptance. Same content as the old 1.5D.2-1.5D.5, with two clarifications: filename is `.mcp.json` (leading dot, per the current spec), and the SDK choice (`rmcp` was named in the original task) needs re-verification at implementation time.
+    - **Plugin updates iterative**: every phase that ships a user-facing `qli` surface change now has a Plugin update bullet that links to [context.md → External Documentation → Claude Code plugins](#external-documentation). 1.5E (SKILL.md edit: drop "self-update is a stub" warning when self-update becomes real; no new slash command since self-update modifies binaries and stays user-initiated); 2F (slash command for `qli ext cache clean` + SKILL.md mention); 2G (slash command for `qli analyze` + SKILL.md update); 3B (SKILL.md mention only — LSP is editor-bound); 4C (slash command for `qli index` + SKILL.md update). Plugin tracks the binary surface phase-by-phase.
+    - **Phase 1.5 acceptance updated**: "Claude Code plugin" path now reads "Claude Code plugin slash commands" — MCP-tool path explicitly moved to Phase 5 acceptance.
+    - **Plugin README.md shipped** at [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md): install instructions (`claude --plugin-dir` for dev, `/plugin install` for regular use), slash command list, qli binary prerequisites, issue link, MIT inheritance. Follows the example-plugin convention.
+    - **External Documentation section added to context.md** (between External Tools and Design Decisions) covering Claude Code plugins (3 doc URLs verified this session + 2 real-plugin paths + 2 empirically verified mapping rules), MCP (spec landing, SDK re-verify note, 4 real-plugin paths), cargo-dist, crates.io. Phase tasks now reference it instead of re-discovering format conventions from scratch each session.
+
+- **2026-05-11 — Phase 1.5D.1 complete: 4 slash commands + skill scaffolding verified end-to-end.** User ran `claude --plugin-dir ./claude-code-plugin` in a fresh session and dispatched all four commands. Each `/qli:<command> [args]` resolved via plugin namespace; Claude read the slash command body as a prompt, used the pre-approved `Bash` tool to run the underlying `qli ...` invocation with `$ARGUMENTS` substituted, and printed stdout. Results: `/qli:ext-list` → 3 embedded extensions (dev/org/prod `hello`, paths under `~/.cache/qli/embedded/0.1.1/`); `/qli:ext-which dev hello` → the path; `/qli:ext-install-defaults` → "wrote 6, skipped 0" (3 manifests + 3 scripts written to `~/.local/share/qli/extensions/`); `/qli:completions zsh` → 425-line zsh completion script. The plugin-namespace + filename-basename mapping (`/qli:<basename>`) confirmed against live behavior, matching the hookify pattern observed pre-write. 1.5D.1 is done end-to-end; 1.5D.2 (MCP server skeleton) remains untouched.
+
+- **2026-05-11 — Phase 1.5D.1 scaffolding written.** [`claude-code-plugin/`](../../../claude-code-plugin/) shipped with the current Claude Code spec's layout (`.claude-plugin/plugin.json`, `skills/qli/SKILL.md`, `commands/<basename>.md` for the four 1.5D slash commands). Two pre-write divergences from the original plan diagram: layout switched to the current spec (was flat `skill.md` + `commands/` + `mcp.json`), and slash commands wrap today's v0.1.1 CLI surface (`ext-*`, `completions`) rather than the not-yet-shipped `analyze`/`index` subcommands. Verified end-to-end on 2026-05-11 — see next entry. Format conventions and real-plugin reference paths now codified in [External Documentation → Claude Code plugins](#external-documentation); plugin-version cadence in [Design Decisions → "Plugin version tracks the qli binary version"](#architectural-decisions).
 
 - **2026-05-06 — Phase 1.5C complete: workspace published to crates.io; three install paths live.**
     - **5 workspace crates @ v0.1.1 on crates.io**: `qli-core`, `qli-ext`, `qli-lang`, `qli-outputs` (tier 1), `qli` (tier 2). Publish via `scripts/publish-workspace.sh` (local, gitignored); idempotent skip-check per (name, version); 60s pause between tiers so tier 2's `qli-ext = "0.1.1"` resolution sees the freshly-published tier-1 version.
@@ -267,10 +288,22 @@ qli/
 │   ├── prod/hello
 │   ├── org/_manifest.toml
 │   └── org/hello
-├── claude-code-plugin/                 # phase 1.5
-│   ├── skill.md
-│   ├── commands/
-│   └── mcp.json                        # optional MCP server config
+├── .claude-plugin/                     # repo-as-marketplace manifest (phase 1.5F) — distinct from claude-code-plugin/.claude-plugin/ (the plugin's own manifest)
+│   └── marketplace.json                # name: "qli-plugins", plugins: [{name: "qli", source: "./claude-code-plugin", ...}]
+├── claude-code-plugin/                 # phase 1.5D (scaffolding) + iterative updates in 2F/2G/3B/4C; MCP `.mcp.json` lands in phase 5D
+│   ├── .claude-plugin/
+│   │   └── plugin.json                 # manifest: name, version, skills pointer
+│   ├── skills/qli/SKILL.md             # when Claude should invoke qli (uppercase filename per current spec)
+│   ├── commands/                       # slash command bodies are PROMPTS for Claude (use Bash via allowed-tools), not shell scripts. Filename → slash command: <basename>.md → /<plugin>:<basename>
+│   │   ├── ext-list.md
+│   │   ├── ext-which.md
+│   │   ├── ext-install-defaults.md
+│   │   ├── completions.md
+│   │   ├── ext-cache-clean.md          # lands in 2F
+│   │   ├── analyze.md                  # lands in 2G
+│   │   └── index.md                    # lands in 4C
+│   ├── README.md                       # install instructions + slash command list
+│   └── .mcp.json                       # MCP server config; lands in phase 5D once `qli mcp` ships
 └── plans/
     └── active/qli-foundation/
         ├── qli-foundation-plan.md
@@ -331,6 +364,52 @@ qli/
 - **`scip`** (Sourcegraph CLI) — used in Phase 4 tests to validate emitted indexes.
 - **`gh`** (GitHub CLI) — used in `release.yml` and for Homebrew tap publishing.
 
+## External Documentation
+
+Primary-source references for phases that touch external surfaces. URLs rot — verify at use time. Use this section as the starting point rather than re-discovering format conventions from scratch.
+
+### Claude Code plugins (1.5D scaffolding done; 1.5E/2F/2G/3B/4C iterate as binary surfaces ship; Phase 5 adds MCP)
+
+- Plugin authoring guide: <https://code.claude.com/docs/en/plugins.md>
+- Plugins reference (full plugin.json schema, file locations table, version-management section): <https://code.claude.com/docs/en/plugins-reference.md>
+- Plugin marketplaces (marketplace.json schema, `/plugin marketplace add` syntax, source types): <https://code.claude.com/docs/en/plugin-marketplaces.md>
+- Discover and install plugins (`/plugin install <name>@<marketplace>`, marketplace cache layout): <https://code.claude.com/docs/en/discover-plugins.md>
+- Skills (`SKILL.md` frontmatter + invocation rules): <https://code.claude.com/docs/en/skills.md>
+- Real-plugin reference patterns on this machine:
+  - `~/.claude/plugins/marketplaces/claude-plugins-official/plugins/example-plugin/` — skill + slash command + agent + hook + MCP in one plugin
+  - `~/.claude/plugins/marketplaces/claude-plugins-official/plugins/hookify/` — production-style plugin with multiple commands under one namespace
+  - `~/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json` — reference for marketplace.json shape (used by `qli-plugins` design)
+  - `~/.claude/plugins/known_marketplaces.json` and `~/.claude/plugins/installed_plugins.json` — show how Claude Code records marketplace + plugin state on disk
+- Locked facts (verified 2026-05-13 against the docs + on-disk state above):
+  - Filename → slash command: `commands/<basename>.md` → `/<plugin-name>:<basename>`. Slash command body is a **prompt for Claude**, not a shell script; `allowed-tools: [Bash]` in frontmatter pre-approves Bash so the prompt body can instruct Claude to run a command via the Bash tool.
+  - `commands/<name>.md` (flat) and `skills/<name>/SKILL.md` (directory) both work and both produce `/<plugin>:<name>`. The plugins-reference "File locations reference" table marks `commands/` as legacy ("Use `skills/` for new plugins"). Existing 1.5D layout keeps `commands/` since user verified end-to-end; we don't migrate.
+  - `.mcp.json` (leading dot) lives at the plugin root (not inside `.claude-plugin/`), per the same File locations reference table. `mcpServers` inline in `plugin.json` is an alternative shape; either works.
+  - `$schema` field on `plugin.json` and `marketplace.json` is for editor autocomplete only — plugins-reference: "Claude Code ignores this field at load time". For `plugin.json` the working URL is `https://json.schemastore.org/claude-code-plugin-manifest.json`. For `marketplace.json` no working schema URL exists today — Anthropic's own marketplace points at `https://anthropic.com/claude-code/marketplace.schema.json` which 404s, so qli omits the field rather than ship a link that misleads readers.
+  - Marketplace cache directory naming: `~/.claude/plugins/marketplaces/<marketplace-name>/`, where `<marketplace-name>` is the `name` field from `marketplace.json` — **not** a slug from the GitHub `owner/repo`. Confirmed via `known_marketplaces.json`: `nextlevelbuilder/ui-ux-pro-max-skill` is cached at `ui-ux-pro-max-skill/`.
+  - Plugin cache directory naming: `~/.claude/plugins/cache/<marketplace-name>/<plugin-name>/<version>/`. Each installed version is a separate directory; old versions are GC'd after ~7 days.
+  - Version-management rule: explicit `version` in `plugin.json` wins; if omitted, git commit SHA is used and every commit counts as a new version. Both shapes are supported (plugins-reference "Version management").
+
+### Model Context Protocol — MCP (Phase 5)
+
+- Official MCP spec landing: <https://modelcontextprotocol.io>
+- Claude Code's MCP plugin integration (`.mcp.json` and `plugin.json` `mcpServers` field) is covered in the plugins-reference URL above.
+- Rust SDK repo: <https://github.com/modelcontextprotocol/rust-sdk>. crate: <https://crates.io/crates/rmcp>. Choice rationale + API surface used by Phase 5 locked in [Design Decisions → "Rust MCP SDK choice"](#architectural-decisions).
+- Real Claude Code MCP plugins on this machine (for `plugin.json` + `.mcp.json` wiring patterns):
+  - `~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/serena/`
+  - `~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/context7/`
+  - `~/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/terraform/`
+  - `~/.claude/plugins/cache/claude-plugins-official/rust-analyzer-lsp/1.0.0/` (LSP-bridge style)
+
+### cargo-dist (Phase 1.5A done; revisit each release + at toolchain bumps)
+
+- Upstream: <https://github.com/axodotdev/cargo-dist>
+- Astral's archived fork (deprecated 2025-12-19; here only because earlier docs may still link to it): <https://github.com/astral-sh/cargo-dist>
+
+### crates.io publishing (Phase 1.5C done; revisit each release)
+
+- Cargo Reference (publishing): <https://doc.rust-lang.org/cargo/reference/publishing.html>
+- Category slugs (validate before listing in `Cargo.toml` `categories`): <https://crates.io/category_slugs>
+
 ## Design Decisions
 
 ### Resolved blocking decisions (locked before Phase 0)
@@ -351,6 +430,30 @@ qli/
 - **Manifest schema versioned.** `schema_version = 1` on every `_manifest.toml`. Dispatcher rejects unknown versions with a clear error.
 - **`self-update` is a stub in Phase 1, real in Phase 1.5.** Solving self-update before any binaries exist is solving a non-problem; reserving the subcommand keeps UX consistent.
 - **Claude Code plugin is a wrapper, not a precondition.** The CLI is a CLI first. The plugin is a thin shell over a working binary; it doesn't dictate any architectural choices.
+- **Plugin version tracks the qli binary version.** [`claude-code-plugin/.claude-plugin/plugin.json`](../../../claude-code-plugin/.claude-plugin/plugin.json) `version` matches the qli workspace version (currently 0.1.1). [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) and [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) both carry a "Targets qli vX.Y.Z" line that re-pins to the same version. Every qli release that ships new user-facing surface (1.5E, 2F, 2G, 3B, 4C, Phase 5) bumps all three pins together. Rationale: the slash commands assume a specific qli CLI surface; a version mismatch silently breaks `$ARGUMENTS` dispatch when subcommands or flags rename. Tracking 1:1 keeps install reasoning simple — a user on qli x.y.z runs the plugin built against x.y.z. Referenced by all Phase plugin-update bullets in [tasks.md](qli-foundation-tasks.md).
+- **Plugin install-distribution: qli repo is its own Claude Code plugin marketplace.** Repo-root [`/.claude-plugin/marketplace.json`](../../../.claude-plugin/marketplace.json) declares marketplace `name: "qli-plugins"` with one plugin entry pointing at `./claude-code-plugin`. User install flow: `/plugin marketplace add QLangstaff/qli` then `/plugin install qli@qli-plugins` (the marketplace name is the install suffix, **not** the GitHub repo slug). Cache lands at `~/.claude/plugins/marketplaces/qli-plugins/` and `~/.claude/plugins/cache/qli-plugins/qli/<version>/`. Pattern matches Anthropic's own marketplace (`~/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json`) where co-located plugins use bare-string `source: "./plugins/<name>"`. Marketplace name `qli-plugins` is distinct from plugin name `qli` so the install command is unambiguous and leaves room for additional qli-ecosystem plugins later.
+    - **Locked manifest field set** (verified 2026-05-13 against the on-disk marketplace.json + plugins-reference docs). `$schema` deliberately omitted — see [External Documentation → Claude Code plugins locked facts](#external-documentation) for the reason:
+      ```json
+      {
+        "name": "qli-plugins",
+        "description": "Plugins for the qli polyglot code-analysis CLI.",
+        "owner": { "name": "Qali Langstaff", "url": "https://github.com/QLangstaff" },
+        "plugins": [
+          {
+            "name": "qli",
+            "description": "Slash commands and a skill for the qli CLI.",
+            "author": { "name": "Qali Langstaff" },
+            "source": "./claude-code-plugin",
+            "category": "development",
+            "homepage": "https://github.com/QLangstaff/qli/tree/main/claude-code-plugin"
+          }
+        ]
+      }
+      ```
+      No `version` or `sha` on the plugin entry — same-repo plugins move with the marketplace and inherit the plugin.json `version`.
+    - **1.5F does NOT bump the plugin version.** The version-tracks-binary rule applies to CLI-surface changes; 1.5F only adds the marketplace manifest + a README edit. Binary surface is unchanged, so plugin stays at 0.1.1. The next version bump comes with 1.5E (self-update implementation) or whichever phase ships the next qli release with user-facing CLI changes.
+    - Executed in [tasks.md → 1.5F](qli-foundation-tasks.md).
+- **Rust MCP SDK choice: `rmcp` from `github.com/modelcontextprotocol/rust-sdk`.** Official SDK maintained by the modelcontextprotocol org; latest 1.6.0 (2026-05-01); 1.x is stable. Tool registration uses `#[tool_router]` + `#[tool]` derive macros with `schemars::JsonSchema` for input schemas, `serde::Deserialize` for parameter structs, and `transport::stdio()` for the JSON-RPC stdio transport. Pulls in `tokio` as the async runtime — Phase 3A (`tower-lsp`) also wants tokio, so the runtime is shared. crate: <https://crates.io/crates/rmcp>. Locked here so Phase 5A doesn't re-litigate at implementation time; revisit only if a release ships a breaking 2.x with no compatible 1.x and the migration cost is meaningful.
 - **Seed languages = Python + TypeScript.** Picked to exercise the polyglot trait with two genuinely different grammars before piling on. C# (Phase 2.5) and Angular (Phase 2.6) are explicit later milestones, not bolt-ons.
 - **Trivial seed analyzer (TODO/FIXME extractor).** Phase 2's job is to prove the architecture across languages, not to ship real analysis. Real analyzers come after Phase 2 is solid.
 

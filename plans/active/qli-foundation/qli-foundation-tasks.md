@@ -1,5 +1,5 @@
 # Task Checklist: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-05-03 (Phase 1L complete pending CI; Push B tests added)
+**Last Updated:** 2026-05-13 (deferred items closed + review-pass fixes; see 2026-05-13 SESSION PROGRESS in [context.md](qli-foundation-context.md))
 
 Each phase ships a working artifact. Don't start phase N+1 until phase N's "verify" tasks pass.
 
@@ -159,7 +159,6 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [x] Pre-flight: `dist plan` warning-free; `cargo build --workspace`, `cargo test --workspace` (73 tests), `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all -- --check`, `cargo build --release --workspace` all clean.
 - [x] Tagged `v0.1.0` test release; **all 5 target binaries built**; release created twice (see incident note in [context.md](qli-foundation-context.md) SESSION PROGRESS). Final release at [`v0.1.0` → `b2c56ad`](https://github.com/QLangstaff/qli/releases/tag/v0.1.0) with 16 assets: 5 platform tarballs/zips + their `.sha256` siblings, `qli-installer.sh`, `qli.rb` Homebrew formula, `sha256.sum`, `source.tar.gz` + sibling, `dist-manifest.json`.
 - [x] **Verify**: `curl -LsSf https://github.com/QLangstaff/qli/releases/latest/download/qli-installer.sh | sh` on macOS (this machine, aarch64-apple-darwin) — installer detected platform, downloaded tarball, placed binary at `/Users/qali/.cargo/bin/qli`. `qli --version` reports `qli 0.1.0`; `qli --help` renders the full root help with embedded `dev`/`prod`/`org` extensions visible.
-- [ ] **C-toolchain verify on every target — defer to Phase 2.** Tree-sitter grammars are C code; the v0.1.0 release built the current binary which has zero C deps, so "all 5 targets build" at v0.1.0 proves the cargo-dist pipeline works but does NOT prove C cross-compile. Real test fires when Phase 2 ships its first grammar (`tree-sitter-python`/`tree-sitter-typescript` in 2C/2D). Track as a Phase 2 verify gate.
 - [x] **Re-enabled 1K branch protection** (2026-05-04). 9 required checks (8 from `ci.yml` + `plan` from `release.yml`), `enforce_admins: false` so owner keeps direct-push flow, no PR review requirement, no force-push, no deletion. See 1K → "Block PR merge on CI green" for full settings.
 
 ### 1.5B: Homebrew tap
@@ -180,37 +179,14 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [x] **Verify**: `cargo install qli --version 0.1.1 --locked --force` on this machine — `cargo` pulled `qli-ext v0.1.1` from crates.io, compiled from source, placed binary at `~/.cargo/bin/qli`. `qli --version` reports `qli 0.1.1`. Three install paths now real: `cargo install`, `brew install QLangstaff/qli/qli`, `curl | sh`.
 - [x] **Resolved Phase 1H crate-publish caveat**: `crates/qli-ext/extensions` symlink (`-> ../../extensions`) lets `cargo package` bundle the extension defaults into the published tarball while keeping the workspace root as canonical edit location. Module doc-comment in `defaults.rs` updated to reflect the resolution.
 
-### 1.5D: Claude Code plugin
+### 1.5D: Claude Code plugin scaffolding (skill + slash commands)
 
-#### 1.5D.1: Plugin scaffolding (skill + slash commands)
+MCP server + tool schemas moved to Phase 5 — depends on `qli analyze` (2G) and `qli index` (4C) shipping first so tool schemas mirror real engine output instead of imagined shapes. Slash commands for analyze/index land iteratively in 2G/4C (see plugin-update bullets in those phases).
 
-- [ ] Create `claude-code-plugin/` directory with `skill.md` documenting when Claude should invoke `qli` and how to interpret its output.
-- [ ] Create `commands/qli-analyze.md`, `commands/qli-index.md`, etc. — slash command wrappers that shell out to the installed `qli` binary.
-- [ ] Verify each slash command works in Claude Code with the plugin installed locally.
-
-#### 1.5D.2: MCP server skeleton (own subcommand, own protocol)
-
-- [ ] Add `qli mcp` subcommand. MCP is JSON-RPC 2.0 over stdio (separate protocol from LSP); the `qli` binary speaks both via different subcommands.
-- [ ] Use the official `rmcp` crate (or the closest current-best Rust MCP SDK) — do **not** roll your own JSON-RPC.
-- [ ] Implement MCP server lifecycle: `initialize`, `initialized`, `shutdown`, `exit`. Long-running stdio process; logging goes to stderr or a file (never stdout — that's the MCP transport).
-
-#### 1.5D.3: MCP tool schemas
-
-- [ ] Declare `qli_analyze` MCP tool with input schema `{ paths: string[], lang?: string, analyzer?: string }` and output schema matching `qli analyze --format jsonl` records.
-- [ ] Declare `qli_index` MCP tool with input schema `{ path: string, output?: string, lang?: string[] }` and output schema describing the resulting SCIP file (path, byte count, symbol/reference counts).
-- [ ] Declare `qli_ext_list` MCP tool exposing the discovered extensions (Claude can introspect what's available).
-- [ ] Tool implementations call the same `qli-core` engine the CLI uses — no shelling out to `qli` from inside `qli mcp`.
-
-#### 1.5D.4: MCP integration test
-
-- [ ] Add an integration test that spawns `qli mcp`, sends `initialize`, `tools/list`, then `tools/call` for `qli_analyze` over a fixture, asserts the response contains expected diagnostics.
-- [ ] Use the MCP SDK's test client if available; otherwise hand-craft JSON-RPC frames.
-
-#### 1.5D.5: `mcp.json` and install docs
-
-- [ ] Create `claude-code-plugin/mcp.json` declaring the MCP server (`command: "qli", args: ["mcp"]`).
-- [ ] Document plugin install path against the current Claude Code plugin spec (verify exact location at implementation time — likely `~/.claude/plugins/qli/`).
-- [ ] Verify end-to-end: in Claude Code with the plugin installed, `/qli-analyze foo.py` works (slash command path); Claude can also call `qli_analyze` as an MCP tool with structured inputs/outputs (MCP path).
+- [x] Create [`claude-code-plugin/`](../../../claude-code-plugin/) with the current Claude Code plugin layout: [`.claude-plugin/plugin.json`](../../../claude-code-plugin/.claude-plugin/plugin.json) manifest, [`skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) (uppercase `SKILL.md` under `skills/<name>/`, not flat `skill.md` as the original plan diagram showed). Canonical doc URLs and verified format conventions live in [context.md → External Documentation → Claude Code plugins](qli-foundation-context.md#external-documentation).
+- [x] Create slash command wrappers in [`claude-code-plugin/commands/`](../../../claude-code-plugin/commands/) for **today's qli v0.1.1 surface**: [`ext-list.md`](../../../claude-code-plugin/commands/ext-list.md), [`ext-which.md`](../../../claude-code-plugin/commands/ext-which.md), [`ext-install-defaults.md`](../../../claude-code-plugin/commands/ext-install-defaults.md), [`completions.md`](../../../claude-code-plugin/commands/completions.md) — basenames produce `/qli:ext-list`, `/qli:ext-which`, `/qli:ext-install-defaults`, `/qli:completions` under the plugin namespace (verified via hookify's commands: `list.md` → `/hookify:list`). Each command body is a **prompt for Claude** instructing it to run the underlying `qli ...` invocation via the `Bash` tool and print output verbatim (slash command bodies are not shell scripts). `/qli:analyze` and `/qli:index` land iteratively in 2G and 4C alongside the binary surfaces they wrap. `dev`/`prod`/`org` extension-dispatch subcommands have no slash command — they run user-defined scripts.
+- [x] Plugin [`README.md`](../../../claude-code-plugin/README.md) — install instructions (`claude --plugin-dir` for dev; `/plugin install` for regular use), slash command list, qli binary prerequisites, issue link. Follows the example-plugin convention.
+- [x] Verified 2026-05-11 by user via `claude --plugin-dir ./claude-code-plugin` in a fresh session. All four slash commands dispatched: `/qli:ext-list` returned 3 embedded extensions (paths under `~/.cache/qli/embedded/0.1.1/`); `/qli:ext-which dev hello` returned the path; `/qli:ext-install-defaults` wrote 6 files to `~/.local/share/qli/extensions/`, skipped 0; `/qli:completions zsh` produced the 425-line zsh completion script. `$ARGUMENTS` substitution + `Bash` tool dispatch both work as designed.
 
 ### 1.5E: Self-update implementation
 
@@ -220,10 +196,23 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [ ] For cargo: print `cargo install qli --force`.
 - [ ] For Claude Code plugin: print update-via-plugin-manager instructions.
 - [ ] Verify: `qli self-update` produces the right behavior under all four install methods.
+- [ ] **Plugin update**: edit [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) — drop the "Do not invoke `qli self-update` — it is a stub" warning; replace with a brief note that self-update is now real, install-method-aware, and may be run when the user asks for an upgrade (Claude can shell `qli self-update` via Bash if the user asks, but shouldn't autonomously run it). No new slash command — self-update modifies installed binaries, so it stays user-initiated.
+    - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
+    - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, run `/qli:ext-list` (sanity-check existing dispatch still works after the edit) and confirm Claude's response to a self-update question (e.g., "how do I upgrade qli?") reflects the new SKILL.md guidance rather than the old "stub" wording.
+
+### 1.5F: Plugin marketplace (regular-use install path)
+
+Per [context.md → Design Decisions → "Plugin install-distribution: qli repo is its own Claude Code plugin marketplace"](qli-foundation-context.md#architectural-decisions). Manifest field set is locked there (verified 2026-05-13 against plugins-reference + on-disk marketplace examples). No plugin version bump in 1.5F — CLI binary surface is unchanged.
+
+- [ ] Create `/.claude-plugin/marketplace.json` at the qli repo root (sibling to `claude-code-plugin/`, not nested inside it) with the exact field set in [context.md → "Plugin install-distribution"](qli-foundation-context.md#architectural-decisions). `$schema` is omitted — Claude Code ignores the field at load time and no working marketplace-schema URL exists today.
+- [ ] Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) "Regular use" section: replace the current "Refer to the Claude Code plugin docs" placeholder with the two-step install — `/plugin marketplace add QLangstaff/qli` then `/plugin install qli@qli-plugins`. Keep the `claude --plugin-dir` dev path as a separate "Local development" subsection.
+- [ ] **Commit and push to `origin/main`.** `/plugin marketplace add QLangstaff/qli` does a `git clone` from GitHub and cannot see local-only changes; the marketplace manifest + README edits must be on `main` before the verify step runs.
+- [ ] Verify end-to-end on a fresh Claude Code session with no prior `~/.claude/plugins/marketplaces/qli-plugins/` entry: run `/plugin marketplace add QLangstaff/qli`, confirm `~/.claude/plugins/marketplaces/qli-plugins/` is populated (named after the marketplace's `name` field, not the GitHub repo slug — pattern confirmed via `~/.claude/plugins/known_marketplaces.json`), run `/plugin install qli@qli-plugins`, dispatch all four 1.5D slash commands (`/qli:ext-list`, `/qli:ext-which dev hello`, `/qli:ext-install-defaults`, `/qli:completions zsh`) and confirm output matches the 2026-05-11 1.5D verify run.
 
 ### Phase 1.5 acceptance
 
-- [ ] All four install paths (cargo, brew, curl, Claude Code plugin) work on a clean machine.
+- [ ] All four install paths (cargo, brew, curl, Claude Code plugin slash commands) work on a clean machine. MCP-tool path moved to Phase 5 acceptance.
+- [ ] Plugin's "regular use" install path (1.5F outcome — marketplace) works on a clean machine following only the [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) install instructions; no `--plugin-dir` dev flag required.
 - [ ] Tagged release produces all artifacts automatically.
 - [ ] `qli self-update` works for the curl-installed path and prints correct guidance for the others.
 
@@ -273,6 +262,9 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [ ] Add `--no-cache` flag (skip both read and write for the current run).
 - [ ] Add `qli ext cache clean [--all|--older-than <days>]` for manual eviction.
 - [ ] Verify: second run on unchanged file is cache hit; modifying the file invalidates; bumping `analyzer_version` invalidates without touching disk; size cap triggers eviction of oldest entries.
+- [ ] **Plugin update**: add `claude-code-plugin/commands/ext-cache-clean.md` wrapping `qli ext cache clean $ARGUMENTS` via the Bash tool. Update [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) — add cache-clean to the "when to invoke" list (e.g., "Clean qli's cache" → `/qli:ext-cache-clean`). Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) command list.
+    - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
+    - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, dispatch `/qli:ext-cache-clean` (no args) and `/qli:ext-cache-clean --older-than 7` — confirm both reach `qli ext cache clean` via Bash and print stdout verbatim. Re-verify a previously-shipped command (`/qli:ext-list`) still works (catches accidental SKILL.md or plugin.json regressions).
 
 ### 2G: `qli analyze` command
 
@@ -282,6 +274,9 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [ ] Auto-detect format: `human` if stdout is a TTY, `jsonl` otherwise.
 - [ ] Add `after_help` examples to `qli analyze` matching the 1B pattern (root + `completions`).
 - [ ] Verify: `qli analyze foo.py` and `qli analyze foo.ts` both work; `qli analyze --help` shows examples; `| jq .` consumes jsonl output.
+- [ ] **Plugin update**: add `claude-code-plugin/commands/analyze.md` (slash command wrapping `qli analyze $ARGUMENTS` via Bash) and a short paragraph in [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) noting `qli analyze` is now real and when Claude should invoke it. Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) command list. Follow the same prompt-not-shell-script body shape as 1.5D.
+    - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
+    - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, dispatch `/qli:analyze <fixture.py>` against a fixture with at least one TODO/FIXME — confirm Claude shells `qli analyze` via Bash, prints diagnostics verbatim, and falls back gracefully on no-args (refuses or prints help rather than running `qli analyze` with empty `$ARGUMENTS`). Re-verify `/qli:ext-list` to catch regressions.
 
 ### 2H: Trivial seed analyzer (TODO/FIXME extractor)
 
@@ -313,6 +308,7 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [ ] Same engine output, two output formats, both correct.
 - [ ] Cache hit/miss observable via `-vv` logging; bumping analyzer version invalidates appropriately.
 - [ ] Analyzer registry can dispatch to any registered analyzer by id.
+- [ ] **C-toolchain cross-compile verify.** Tag a test release with at least one tree-sitter grammar in the workspace (`tree-sitter-python` from 2C and/or `tree-sitter-typescript` from 2D) and confirm all 5 cargo-dist targets build clean: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`. Tree-sitter grammars are C code; the v0.1.0 release proved the cargo-dist pipeline but had zero C deps, so cross-compile remains untested.
 
 ## Phase 2.5: C# Adapter
 
@@ -350,6 +346,9 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [ ] Add `qli lsp` subcommand: `--stdio` (default), `--tcp <port>`.
 - [ ] In `--stdio` mode, **all** logging goes to stderr or a file (never stdout — that's the LSP transport). In `--tcp` mode, stderr stays clean too (file logging only) to keep terminal usage sane.
 - [ ] Verify: starting the server with `qli lsp --stdio` produces valid LSP handshake; `tower-lsp`'s test harness completes initialize→didOpen→publishDiagnostics roundtrip.
+- [ ] **Plugin update**: edit [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) — add a brief note that qli now speaks LSP via `qli lsp --stdio` for editor integration (informational; no slash command since LSP is editor-bound and Claude wouldn't invoke it directly). Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) "What's in this plugin" section to mention LSP availability.
+    - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
+    - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, ask Claude an LSP-relevant question (e.g., "how would I get qli diagnostics in VS Code?") and confirm the response references `qli lsp --stdio` per the new SKILL.md guidance. Re-verify `/qli:ext-list` and `/qli:analyze <fixture>` still dispatch (catches frontmatter/YAML breakage from the SKILL.md edit).
 
 ### 3C: VS Code extension + Helix config (real deliverables)
 
@@ -389,6 +388,9 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [ ] Args: `path: PathBuf` (positional, default `.`), `--output <path>` (default `index.scip`), `--lang <ids>` (optional filter), `-v`/`-q`.
 - [ ] Use the `ignore` crate (same one used by `ripgrep`) for `.gitignore`-respecting walks.
 - [ ] Reuse the analysis cache from Phase 2F so re-indexing is incremental.
+- [ ] **Plugin update**: add `claude-code-plugin/commands/index.md` (slash command wrapping `qli index $ARGUMENTS` via Bash) and update [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) noting `qli index` is now real. Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) command list.
+    - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
+    - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, dispatch `/qli:index <fixture-dir>` against a small multi-file Python/TS fixture — confirm Claude shells `qli index` via Bash, the resulting `index.scip` lands at the expected path, and Claude prints stdout (file path, byte count) verbatim. Re-verify `/qli:analyze` and `/qli:ext-list` (regression catch).
 
 ### 4D: Validation
 
@@ -402,6 +404,44 @@ Acceptance gate verified 2026-05-03 against a clean release binary in ephemeral 
 - [ ] `qli index path/to/project` produces a valid `index.scip` recognized by `scip print`.
 - [ ] Symbols (function/class/variable definitions) and references (call sites resolved to defs) from Phase 2I's `DefRefs` analyzer appear correctly in the index for both Python and TypeScript fixtures.
 - [ ] Cross-file references resolve where the analyzer can resolve them; unresolved references are still recorded.
+
+## Phase 5: MCP server + tool schemas
+
+**Prerequisite:** Phase 3 complete (adds `tokio` to the workspace via `tower-lsp` — `rmcp` reuses it) AND Phase 4 complete (which itself requires Phase 2I — the def+ref extractor that populates `qli analyze` output with symbols/references and gives Phase 4's SCIP emission something to record). By the time Phase 5 starts, `qli-core` is real (2A), `qli analyze` ships with both TODO/FIXME and def+ref output (2G + 2H + 2I), `qli index` produces real SCIP files (4C + 4D), `tokio` is in the workspace (3A), and the `qli` binary's user-facing surface is stable enough to design MCP tool schemas against. Originally scoped under 1.5D.2-1.5D.5; moved here so schemas are designed against shipped engines rather than imagined output. Primary-source MCP references (spec landing, SDK choice notes, real-plugin examples on this machine) live in [context.md → External Documentation → Model Context Protocol — MCP](qli-foundation-context.md#external-documentation).
+
+### 5A: MCP server skeleton
+
+- [ ] Add `qli mcp` subcommand. MCP is JSON-RPC 2.0 over stdio (separate protocol from LSP); the `qli` binary speaks both via different subcommands.
+- [ ] Add `rmcp` as a workspace dep, pinning the current 1.x release at implementation time (floor is 1.6 per the decision in [context.md → "Rust MCP SDK choice"](qli-foundation-context.md#architectural-decisions); use the latest 1.x available when this phase starts). `tokio` is in the workspace from Phase 3A (added via `tower-lsp`); `rmcp` reuses the same runtime. Use `transport::stdio()` for the MCP transport. Do **not** roll your own JSON-RPC.
+- [ ] Skim `rmcp`'s README/CHANGELOG against the macro signatures used in 5B (`#[tool_router]`, `#[tool]`, derive `schemars::JsonSchema`) — if the pinned 1.x has shifted from 1.6's shape, update 5B's task body before starting 5B.
+- [ ] Implement MCP server lifecycle via `rmcp`'s `ServiceExt::serve(stdio())` — `initialize`, `initialized`, `shutdown`, `exit` are handled by the SDK. Long-running stdio process; logging goes to stderr or a file (never stdout — that's the MCP transport).
+
+### 5B: MCP tool schemas
+
+- [ ] Declare `qli_analyze` MCP tool via `#[tool_router(server_handler)]` + `#[tool(description = "…")]` on the server impl, with a `#[derive(serde::Deserialize, schemars::JsonSchema)]` params struct `{ paths: Vec<String>, lang: Option<String>, analyzer: Option<String> }`. (Macro signature reflects the `rmcp` version pinned in 5A; 5A's task includes a re-skim of the SDK's README/CHANGELOG before this phase begins.) Output schema matches `qli analyze --format jsonl` records.
+- [ ] Declare `qli_index` MCP tool with params struct `{ path: String, output: Option<String>, lang: Option<Vec<String>> }` and output schema describing the resulting SCIP file (path, byte count, symbol/reference counts).
+- [ ] Declare `qli_ext_list` MCP tool exposing the discovered extensions (Claude can introspect what's available).
+- [ ] Tool implementations call the same `qli-core` engine the CLI uses — no shelling out to `qli` from inside `qli mcp`.
+
+### 5C: MCP integration test
+
+- [ ] Add an integration test that spawns `qli mcp`, sends `initialize`, `tools/list`, then `tools/call` for `qli_analyze` over a fixture, asserts the response contains expected diagnostics.
+- [ ] Use `rmcp`'s in-process client (`ServiceExt` on the client side) if available in the version pulled in by 5A; otherwise hand-craft JSON-RPC frames against the child process's stdio.
+
+### 5D: `.mcp.json` and install docs
+
+- [ ] Create `claude-code-plugin/.mcp.json` (filename `.mcp.json` with leading dot at the plugin root — locked in [context.md → External Documentation → Claude Code plugins](qli-foundation-context.md#external-documentation)) declaring the MCP server: `{ "mcpServers": { "qli": { "command": "qli", "args": ["mcp"] } } }`. No `${CLAUDE_PLUGIN_ROOT}` substitution needed — qli is expected on `PATH` (same model as the slash commands).
+- [ ] Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) MCP section: tool schemas, what each tool does, when Claude will pick MCP over the slash-command path.
+- [ ] **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions). Phase 5 ships a new user-facing surface (`qli mcp` subcommand + MCP tool path), so the rule applies.
+- [ ] **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, confirm the qli MCP server registers on session start (visible in Claude Code's MCP listing) with `qli_analyze`, `qli_index`, `qli_ext_list` exposed. Tool-call correctness (`tools/list` + `tools/call` round-trip shape) is covered by 5C's integration test against `qli mcp` directly — do not gate the verify on Claude's routing choice. Re-verify `/qli:analyze <fixture.py>` and `/qli:ext-list` still dispatch via the slash-command path (catches regressions from the version bump or `.mcp.json` edit).
+
+### Phase 5 acceptance
+
+- [ ] `qli mcp` starts, completes the JSON-RPC handshake, returns 3 tools from `tools/list` (`qli_analyze`, `qli_index`, `qli_ext_list`).
+- [ ] `tools/call` for all three returns correctly-shaped results matching their declared schemas.
+- [ ] Integration test green in CI.
+- [ ] `qli mcp` tool handlers call `qli-core` directly (verify by inspection: no `std::process::Command` invoking `qli` from inside the MCP handlers). Combined with the existing slash-command path (which shells `qli` and lands in the same `qli-core` engine), both surfaces resolve to one engine.
+- [ ] MCP-tool install path works on a clean machine: install the plugin via the 1.5F marketplace path (`/plugin marketplace add QLangstaff/qli` + `/plugin install qli@qli-plugins`), confirm the qli MCP server registers on session start and `qli_analyze`/`qli_index`/`qli_ext_list` appear in Claude Code's MCP listing.
 
 ## Cross-cutting / standing tasks
 

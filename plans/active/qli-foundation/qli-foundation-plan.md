@@ -1,5 +1,5 @@
 # Comprehensive Plan: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-05-01
+**Last Updated:** 2026-05-13 (deferred items closed; see 2026-05-13 SESSION PROGRESS in [context.md](qli-foundation-context.md))
 
 ## Executive Summary
 
@@ -15,11 +15,12 @@ The goal is one tool that replaces ad-hoc personal automation scripts AND cross-
 **Architecture committed up front, delivery phased.** Getting the engine/frontend split right on day one is load-bearing — bolting `core/` purity on later is painful. Each phase ships a working product on its own:
 
 - **Phase 1** ships a usable extension dispatcher: drop in scripts, get safety + consistency for free.
-- **Phase 1.5** makes the binary installable via standard channels, adds Claude Code integration, lights up self-update.
-- **Phase 2** introduces the analysis engine. Two analyzers ship: TODO/FIXME (polyglot diagnostics) and definitions + references (symbols/refs needed by LSP go-to-def and SCIP). Two seed languages: Python + TypeScript.
+- **Phase 1.5** makes the binary installable via standard channels (cargo-dist + Homebrew + crates.io), adds a Claude Code plugin (skill + slash commands wrapping today's user-facing CLI surface — scaffolding in 1.5D, regular-use distribution path in 1.5F), and lights up self-update (1.5E). MCP server moved to Phase 5 — it needs `qli analyze` (Phase 2G) and `qli index` (Phase 4C) to expose meaningful tools.
+- **Phase 2** introduces the analysis engine. Two analyzers ship: TODO/FIXME (polyglot diagnostics) and definitions + references (symbols/refs needed by LSP go-to-def and SCIP). Two seed languages: Python + TypeScript. Plugin picks up `/qli:analyze` and `/qli:ext-cache-clean` slash commands as their binary surfaces ship.
 - **Phase 2.5 / 2.6** add C# and Angular template adapters (mechanical / structural respectively).
-- **Phase 3** wires the engine into a tower-lsp server. With the def+ref analyzer in place, this is meaningfully useful (diagnostics + go-to-def).
-- **Phase 4** adds SCIP whole-repo indexing. With Phase 2I in place, the SCIP output contains real symbols and references — the SCIP semantic delivers as designed.
+- **Phase 3** wires the engine into a tower-lsp server. With the def+ref analyzer in place, this is meaningfully useful (diagnostics + go-to-def). Plugin's `SKILL.md` picks up an LSP mention.
+- **Phase 4** adds SCIP whole-repo indexing. With Phase 2I in place, the SCIP output contains real symbols and references — the SCIP semantic delivers as designed. Plugin picks up `/qli:index`.
+- **Phase 5** wires an MCP server (`qli mcp`) exposing `qli_analyze`, `qli_index`, and `qli_ext_list` as JSON-RPC tools. Decoupled from Phase 1.5 so tool schemas are designed against shipped engines rather than imagined output.
 
 **Key design principles:**
 
@@ -39,7 +40,7 @@ The goal is one tool that replaces ad-hoc personal automation scripts AND cross-
 - Built-in commands: `qli analyze`, `qli lsp`, `qli index`, `qli ext list/install/which`, `qli self-update`, `qli completions`.
 - Default extension stubs in `dev/`, `prod/`, `org/` — **embedded into the binary at compile time via `include_dir!`** so a fresh `cargo install qli` / `brew install qli` has working defaults without needing the repo present.
 - Distribution via `cargo-dist`: cross-compiled GitHub releases (macOS arm64/x86_64, Linux x86_64/arm64, Windows x86_64), Homebrew tap (`QLangstaff/homebrew-qli`), `cargo install` via crates.io, `curl | sh` installer.
-- Claude Code plugin: skill documenting qli usage, slash commands wrapping common ops, optional MCP server exposing `qli analyze` / `qli index` as MCP tools.
+- Claude Code plugin (Phase 1.5D scaffolding + 1.5F distribution + iterative updates through 2F/2G/3B/4C): skill documenting qli usage, slash commands wrapping common ops, regular-use install path verified via plugin marketplace. Plugin version tracks the qli binary version — see [context.md → Design Decisions](qli-foundation-context.md#architectural-decisions). MCP server (Phase 5) exposes `qli_analyze`, `qli_index`, `qli_ext_list` as MCP tools — split out from 1.5D so tool schemas land against shipped engines.
 - CI: lint (clippy), format check (rustfmt), tests, release build matrix, `cargo audit` security gate.
 - **Two analyzers in Phase 2**:
   - **TODO/FIXME extractor** (Phase 2H) — proves polyglot diagnostics across languages.
@@ -81,5 +82,5 @@ Conventions for tests; per-phase "Verify:" lines follow them. Tooling beyond wha
 - **Risk: Publishing N workspace crates multiplies release toil.** Bumping a shared dep means updating versions across all crates and publishing in dependency order. _Mitigation: Use `release-plz` or a custom release script that publishes crates in topological order; document the release procedure. Accept this cost as the price of the modular architecture._
 - **Risk: Embedded extension defaults via `include_dir!` go stale relative to the repo.** Users updating via `cargo install` get the version baked into the binary, not the repo's `extensions/` HEAD. _Mitigation: Treat embedded defaults as part of the release artifact; document that user-installed extensions in `$XDG_DATA_HOME/qli/extensions/` always override embedded defaults. `qli ext install-defaults` writes embedded defaults to disk so users can edit them._
 - **Risk: Phase 4 SCIP needs symbols and references, not just diagnostics.** _Mitigation: Phase 2I (definition + reference extractor) is now an explicit prerequisite for Phase 4. Without it, Phase 4 ships an empty index. Sequencing enforces this._
-- **Risk: 1.5D MCP server is its own protocol surface (JSON-RPC over stdio, tool schemas, lifecycle).** Underscoping it as "wrap the CLI" leads to a broken plugin. _Mitigation: 1.5D is broken into sub-tasks (server skeleton, tool schemas, integration test, install docs) in `tasks.md`._
+- **Risk: Phase 5 MCP server is its own protocol surface (JSON-RPC over stdio, tool schemas, lifecycle).** Underscoping it as "wrap the CLI" leads to a broken plugin. _Mitigation: Phase 5 uses the official `rmcp` SDK ([`github.com/modelcontextprotocol/rust-sdk`](https://github.com/modelcontextprotocol/rust-sdk), v1.6+, decision locked in [context.md](qli-foundation-context.md#architectural-decisions)) — lifecycle is handled by the SDK, not hand-rolled. Phase 5 is split into 5A (server skeleton), 5B (tool schemas), 5C (integration test), 5D (`.mcp.json` + install docs) in `tasks.md`. Phase 5 lands after Phase 4 so tool schemas (`qli_analyze`, `qli_index`) are designed against shipped engines, not imagined ones._
 - **Risk: tree-sitter grammars are C code; cross-compilation needs a C toolchain on every release target.** _Mitigation: `cargo-dist` runners include C toolchains by default; verify on first 1.5A test release before declaring 1.5 done._
