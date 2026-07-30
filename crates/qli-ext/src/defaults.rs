@@ -34,12 +34,18 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use include_dir::{include_dir, Dir, DirEntry};
 use thiserror::Error;
 
 /// Compile-time snapshot of the repo's `extensions/` tree.
 pub static DEFAULTS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/extensions");
+
+/// Monotonic counter making each atomic-write temp file name unique within
+/// a process. Combined with the PID it is unique across processes and
+/// threads, so concurrent materializations never collide on a temp path.
+static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Counters from a [`materialize_to`] run. Useful for log lines and
 /// `install-defaults` output ("wrote N files, skipped M existing").
@@ -118,26 +124,58 @@ fn materialize_dir(
             }
             DirEntry::File(file) => {
                 let dest = target_root.join(file.path());
-                if let Some(parent) = dest.parent() {
-                    fs::create_dir_all(parent).map_err(|source| MaterializeError::CreateDir {
-                        path: parent.to_path_buf(),
-                        source,
-                    })?;
-                }
+                let Some(parent) = dest.parent() else {
+                    // Every embedded file lives under a group dir, so it
+                    // always has a parent; skip defensively if not.
+                    continue;
+                };
+                fs::create_dir_all(parent).map_err(|source| MaterializeError::CreateDir {
+                    path: parent.to_path_buf(),
+                    source,
+                })?;
                 if dest.exists() && !force {
                     stats.skipped += 1;
                     continue;
                 }
-                fs::write(&dest, file.contents()).map_err(|source| MaterializeError::Write {
-                    path: dest.clone(),
-                    source,
-                })?;
+                // Materialize atomically: write to a unique temp sibling,
+                // set its mode, then `rename` into place. `rename(2)` is
+                // atomic on POSIX, so another `qli` process sharing this
+                // cache dir never observes a half-written file — `dest`
+                // either does not exist yet or is complete, which is exactly
+                // the invariant the `dest.exists()` skip above relies on. A
+                // plain in-place `fs::write` truncates-then-fills, letting a
+                // racing reader (another process's discovery) parse a
+                // partial `_manifest.toml`. The temp name is `_`-prefixed so
+                // discovery's executable scan ignores it (and the manifest
+                // is loaded by exact name) if it ever glimpses the temp
+                // between write and rename. The name carries the PID plus a
+                // process-monotonic counter so concurrent writers — across
+                // processes and threads — never share a temp path.
                 let is_manifest = dest
                     .file_name()
                     .and_then(|s| s.to_str())
                     .is_some_and(|name| name == "_manifest.toml");
+                let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+                let mut tmp_name =
+                    std::ffi::OsString::from(format!("_qli-tmp.{}.{seq}.", std::process::id()));
+                tmp_name.push(dest.file_name().unwrap_or(std::ffi::OsStr::new("file")));
+                let tmp = parent.join(tmp_name);
+                fs::write(&tmp, file.contents()).map_err(|source| MaterializeError::Write {
+                    path: tmp.clone(),
+                    source,
+                })?;
                 if !is_manifest {
-                    set_executable(&dest)?;
+                    if let Err(err) = set_executable(&tmp) {
+                        let _ = fs::remove_file(&tmp);
+                        return Err(err);
+                    }
+                }
+                if let Err(source) = fs::rename(&tmp, &dest) {
+                    let _ = fs::remove_file(&tmp);
+                    return Err(MaterializeError::Write {
+                        path: dest.clone(),
+                        source,
+                    });
                 }
                 stats.written += 1;
             }
@@ -242,6 +280,64 @@ mod tests {
             manifest_mode & 0o111,
             0,
             "manifest should not be executable, got {manifest_mode:o}",
+        );
+    }
+
+    #[test]
+    fn concurrent_materialize_never_exposes_a_partial_manifest() {
+        // Regression for the shared-cache race: with in-place `fs::write`,
+        // a reader (another process's discovery) could observe a truncated
+        // or half-written `_manifest.toml` while a concurrent materialize
+        // rewrote it — the flaky "invalid manifest TOML at line 1, column
+        // 1" (an empty, freshly-truncated file). The atomic temp+rename
+        // write guarantees the manifest, once present, is always a
+        // complete, parseable file. Several writer threads rewrite in a
+        // tight loop (force = true) to widen the race window while the main
+        // thread reads and parses; any successful read that fails to parse
+        // — empty or partial — is a race observation. Confirmed to fail
+        // against the pre-fix in-place write and pass with the atomic one.
+        use crate::manifest::Manifest;
+        use std::str::FromStr;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().to_path_buf();
+        materialize_to(&root, true).unwrap();
+        let manifest_path = root.join("prod").join("_manifest.toml");
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let writers: Vec<_> = (0..4)
+            .map(|_| {
+                let root = root.clone();
+                let stop = Arc::clone(&stop);
+                std::thread::spawn(move || {
+                    while !stop.load(Ordering::Relaxed) {
+                        materialize_to(&root, true).unwrap();
+                    }
+                })
+            })
+            .collect();
+
+        let mut bad_reads = 0usize;
+        for _ in 0..20_000 {
+            if let Ok(content) = fs::read_to_string(&manifest_path) {
+                // Under the atomic write the file is always complete, so
+                // this always parses. A parse failure means the reader saw
+                // a truncated/partial write — the bug this guards against.
+                if Manifest::from_str(&content).is_err() {
+                    bad_reads += 1;
+                }
+            }
+        }
+        stop.store(true, Ordering::Relaxed);
+        for w in writers {
+            w.join().unwrap();
+        }
+
+        assert_eq!(
+            bad_reads, 0,
+            "reader observed {bad_reads} partial/invalid manifest reads under concurrent writes",
         );
     }
 
