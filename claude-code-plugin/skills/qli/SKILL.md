@@ -24,14 +24,14 @@ These also have dedicated slash commands: `/qli:ext-list`, `/qli:ext-which`, `/q
 ## When NOT to invoke `qli`
 
 - **Do not run user-defined extensions.** `qli dev <name>`, `qli prod <name>`, `qli org <name>` invoke the user's own scripts whose semantics you cannot predict. Even `dev` scripts may have side effects (writes to remote services, file deletions, etc.). The user invokes these directly.
-- **Do not invoke `qli self-update`.** It is a stub in v0.1.x and prints a "not implemented" message; the real implementation is planned for Phase 1.5E.
+- **Do not autonomously run `qli self-update`.** It upgrades the user's installed binary — re-execs the installer on the curl-installed path, prints the upgrade command for cargo/brew. Shell it via Bash only when the user explicitly asks to upgrade qli.
 
 ## Output discipline
 
 - `qli ext list` writes data to **stdout** (tab-separated columns or JSON with `--json`).
 - `qli ext which` writes the path to stdout, or JSON with `--json`. Unknown extension exits 1 with a stderr error.
 - `qli ext install-defaults` writes status to **stderr** ("installed defaults to ...: wrote N, skipped M").
-- `qli self-update` exits 2 (USAGE) and writes its stub message to stderr.
+- `qli self-update` writes its status/guidance to **stderr** (JSON with `--json`); exits 0 when it upgraded or printed guidance, 1 if detection or the upgrade failed.
 - **Discovery warnings** (`warning: ...`) can appear on stderr at startup for *any* `qli` invocation when discovery finds malformed extensions, reserved names, or non-executable `qli-*` binaries on `PATH`. If stderr contains warnings alongside the normal output, surface them to the user too.
 
 Print `qli`'s output verbatim. Do not translate paths, summarize counts, or reformat JSON — the user is asking what `qli` says, not what you think it means.
@@ -45,4 +45,4 @@ Print `qli`'s output verbatim. Do not translate paths, summarize counts, or refo
 
 ## Version
 
-This skill targets `qli v0.1.1`. If `qli --version` reports a substantially different version (e.g., `0.2.x`+), check `qli --help` for the actual subcommand surface before invoking commands described here.
+This skill targets `qli v0.1.2`. If `qli --version` reports a substantially different version (e.g., `0.2.x`+), check `qli --help` for the actual subcommand surface before invoking commands described here.

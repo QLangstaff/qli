@@ -1,7 +1,7 @@
 {
   "name": "qli",
   "description": "Slash commands and a skill for qli — a polyglot code-analysis CLI and any-language extension framework.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "MIT",
   "homepage": "https://github.com/QLangstaff/qli",
   "repository": "https://github.com/QLangstaff/qli",

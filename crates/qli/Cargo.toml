@@ -11,7 +11,7 @@ keywords = ["cli", "code-analysis", "polyglot", "tree-sitter", "extensions"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-qli-ext = { path = "../qli-ext", version = "0.1.1" }
+qli-ext = { path = "../qli-ext", version = "0.1.2" }
 
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
