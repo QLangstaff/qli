@@ -69,15 +69,15 @@ jobs:
   audit:
     name: cargo-audit
     runs-on: ubuntu-latest
-    # `rustsec/audit-check@v2` requires `token:` (input is mandatory in v2)
-    # and uses it to create a check run + annotations, which needs
-    # `checks: write`. The workflow-level grant is `contents: read`; this
-    # job widens to add `checks: write` while keeping `contents: read`.
-    permissions:
-      contents: read
-      checks: write
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: rustup show active-toolchain
+      # Install with `--locked` so cargo-audit builds from its own lockfile.
+      # An unlocked `cargo install` resolves cargo-audit's transitive deps to
+      # latest, which can pull in a crate whose MSRV exceeds this repo's
+      # pinned toolchain and fail to compile (kstring 2.0.4 needed rustc
+      # 1.96.0 while the pin was 1.95.0). `--locked` keeps the audit tool's
+      # build independent of the pin.
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit
