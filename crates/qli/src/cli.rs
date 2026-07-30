@@ -43,7 +43,7 @@ pub enum Command {
         #[command(subcommand)]
         action: ExtAction,
     },
-    /// Update qli to the latest release. (Stub — full implementation in Phase 1.5E.)
+    /// Update qli to the latest release (curl-installed) or print the upgrade command for your install method.
     SelfUpdate {
         /// Emit machine-readable JSON instead of the human message.
         #[arg(long)]

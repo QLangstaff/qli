@@ -4,6 +4,7 @@ mod ext;
 mod logging;
 mod panic;
 mod paths;
+mod self_update;
 mod signal;
 
 use std::collections::HashMap;
@@ -230,40 +231,102 @@ fn dispatch_ext_install_defaults(matches: &ArgMatches) -> anyhow::Result<u8> {
 }
 
 fn dispatch_self_update(matches: &ArgMatches) -> anyhow::Result<u8> {
-    // Stub. Phase 1.5E detects install method (cargo / brew / curl / Claude
-    // Code plugin) and acts accordingly. Until then, point the user at the
-    // installer that ships their binary.
+    use self_update::{Detection, InstallMethod};
+
     let json = matches.get_flag("json");
-    let install_methods = [
-        "cargo install qli --force",
-        "brew upgrade qli",
-        "curl -LsSf https://github.com/QLangstaff/qli/releases/latest/download/qli-installer.sh | sh",
-    ];
+    let detection = self_update::detect();
+    let Detection {
+        method,
+        binary_path,
+    } = &detection;
+
+    // Active update for the curl-installed path; passive guidance for the
+    // others. The plan separates "perform" from "hint" deliberately — package
+    // managers (cargo, brew) own their own upgrade ceremony; tearing those
+    // down from inside qli would surprise users on a tool that's meant to
+    // respect the host package manager.
+    let status = match method {
+        InstallMethod::Curl if !cfg!(target_os = "windows") => {
+            match self_update::run_curl_installer() {
+                Ok(()) => SelfUpdateStatus::Performed,
+                Err(err) => {
+                    eprintln!("error: automated upgrade failed: {err:#}");
+                    SelfUpdateStatus::Failed
+                }
+            }
+        }
+        InstallMethod::Unknown => SelfUpdateStatus::Failed,
+        _ => SelfUpdateStatus::Hinted,
+    };
+
+    let upgrade_command = method.upgrade_command();
+
     if json {
         use std::io::Write;
         let payload = serde_json::json!({
-            "status": "not_implemented",
-            "available_in": "1.5E",
-            "install_methods": install_methods,
+            "install_method": method.as_str(),
+            "binary_path": binary_path.to_string_lossy(),
+            "upgrade_command": upgrade_command,
+            "status": status.as_str(),
+            "plugin_note": self_update::PLUGIN_NOTE,
         });
-        // JSON status output goes to stderr like the human message — stdout
-        // is reserved for data, and "not implemented" is a status, not data.
         let stderr = std::io::stderr();
         let mut out = stderr.lock();
         serde_json::to_writer_pretty(&mut out, &payload).context("failed to write JSON output")?;
         writeln!(out).context("failed to write trailing newline")?;
     } else {
-        eprintln!(
-            "qli self-update is not yet implemented (lands in Phase 1.5). \
-             Update via your install method:"
-        );
-        for method in install_methods {
-            eprintln!("  {method}");
+        match (method, status) {
+            (InstallMethod::Curl, SelfUpdateStatus::Performed) => {
+                eprintln!("qli upgraded via {}.", self_update::INSTALLER_URL);
+            }
+            (InstallMethod::Unknown, _) => {
+                eprintln!(
+                    "could not detect how qli was installed (binary: {}).",
+                    binary_path.display()
+                );
+                eprintln!("If you used:");
+                eprintln!("  cargo install qli  →  cargo install qli --force");
+                eprintln!("  brew install QLangstaff/qli/qli  →  brew upgrade qli");
+                eprintln!(
+                    "  the curl installer  →  curl -LsSf {} | sh",
+                    self_update::INSTALLER_URL
+                );
+            }
+            (_, _) => {
+                let command = upgrade_command
+                    .expect("non-Unknown InstallMethod always has an upgrade command");
+                eprintln!("Upgrade qli with: {command}");
+            }
+        }
+        eprintln!();
+        eprintln!("{}", self_update::PLUGIN_NOTE);
+    }
+
+    Ok(match status {
+        SelfUpdateStatus::Performed | SelfUpdateStatus::Hinted => exit::SUCCESS,
+        SelfUpdateStatus::Failed => exit::ERROR,
+    })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SelfUpdateStatus {
+    /// Active upgrade (curl path) completed.
+    Performed,
+    /// Detection succeeded; printed the upgrade command for a passive path.
+    Hinted,
+    /// Detection succeeded but the active upgrade attempt errored, or the
+    /// install method could not be detected.
+    Failed,
+}
+
+impl SelfUpdateStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Performed => "performed",
+            Self::Hinted => "hinted",
+            Self::Failed => "failed",
         }
     }
-    // Exit with USAGE (2) so a script that pipes this through `&&` stops
-    // on it instead of treating "no-op stub" as success.
-    Ok(exit::USAGE)
 }
 
 fn dispatch_group(

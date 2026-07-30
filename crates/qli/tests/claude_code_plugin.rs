@@ -191,15 +191,23 @@ fn ext_install_defaults_writes_summary_to_stderr() {
 
 #[test]
 #[serial]
-fn self_update_exits_2_with_stub_message() {
+fn self_update_unknown_install_method_exits_1() {
+    // The test binary lives at `target/debug/qli` — not under `~/.cargo/bin`,
+    // not under `/Cellar/`, not under `~/.local/bin`. Detection returns
+    // `unknown`, which by the 1.5E contract exits 1 with a message that names
+    // the three supported install methods so the user can pick one.
     let _sandbox = XdgSandbox::new();
     AssertCommand::cargo_bin("qli")
         .unwrap()
         .arg("self-update")
         .assert()
         .failure()
-        .code(2)
-        .stderr(predicate::str::contains("not yet implemented"));
+        .code(1)
+        .stderr(predicate::str::contains(
+            "could not detect how qli was installed",
+        ))
+        .stderr(predicate::str::contains("cargo install qli --force"))
+        .stderr(predicate::str::contains("brew upgrade qli"));
 }
 
 #[test]
