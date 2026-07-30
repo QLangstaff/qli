@@ -1,0 +1,20 @@
+{
+  "name": "qli-plugins",
+  "description": "Plugins for the qli polyglot code-analysis CLI.",
+  "owner": {
+    "name": "Qali Langstaff",
+    "url": "https://github.com/QLangstaff"
+  },
+  "plugins": [
+    {
+      "name": "qli",
+      "description": "Slash commands and a skill for the qli CLI.",
+      "author": {
+        "name": "Qali Langstaff"
+      },
+      "source": "./claude-code-plugin",
+      "category": "development",
+      "homepage": "https://github.com/QLangstaff/qli/tree/main/claude-code-plugin"
+    }
+  ]
+}

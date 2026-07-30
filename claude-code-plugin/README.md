@@ -17,6 +17,17 @@ Code-analysis slash commands (`/qli:analyze`, `/qli:index`) land alongside the `
 
 ## Install
 
+### Regular use
+
+From any Claude Code session:
+
+```
+/plugin marketplace add QLangstaff/qli
+/plugin install qli@qli-plugins
+```
+
+The first command registers this repo's marketplace (`qli-plugins`); the second installs the `qli` plugin from it. The marketplace name (`qli-plugins`) is the install suffix, not the GitHub repo slug.
+
 ### Local development
 
 ```
@@ -24,10 +35,6 @@ claude --plugin-dir /path/to/qli/claude-code-plugin
 ```
 
 The flag loads the plugin from this directory. Edits to `commands/` and `skills/` are picked up via `/reload-plugins` within the session.
-
-### Regular use
-
-Install via Claude Code's `/plugin install` command. Refer to the [Claude Code plugin docs](https://code.claude.com/docs/en/plugins.md) for the current install syntax.
 
 ## Prerequisites
 
