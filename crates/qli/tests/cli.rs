@@ -6,12 +6,14 @@
 //! suggestion behaviour, error messages, and exit codes — the
 //! clig.dev compliance bar set in Phase 1.
 //!
-//! ## Scope (Phase 1L Push B)
+//! ## Scope (Phase 1L Push B; extended in 2G)
 //!
-//! Six cases, deliberately narrow to keep the snapshots maintainable
-//! across clap upgrades:
+//! Deliberately narrow to keep the snapshots maintainable across clap
+//! upgrades:
 //!   - `version.toml` — `qli --version`
+//!   - `completions-help.toml` — `qli completions --help` (examples block)
 //!   - `completions-zsh.toml` — first line + redaction of zsh script body
+//!   - `analyze-help.toml` — `qli analyze --help` (flags + examples block)
 //!   - `unknown-no-tip.toml` — `qli foo` (no close subcommand → no tip)
 //!   - `unknown-with-tip.toml` — `qli porod hello` (typo of `prod` → tip)
 //!   - `missing-env.toml` — `qli prod hello` without `QLI_ENV` → export hint

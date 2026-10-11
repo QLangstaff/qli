@@ -1,0 +1,61 @@
+bin.name = "qli"
+args = "analyze --help"
+status.code = 0
+stdout = """
+Analyze source files for diagnostics or definitions/references
+
+Usage: qli analyze [OPTIONS] <PATH>...
+
+Arguments:
+  <PATH>...
+          Files or directories to analyze. Directories are walked (respecting `.gitignore`); unsupported files are skipped
+
+Options:
+      --lang <LANG>
+          Language to parse as, or `auto` to detect from the file extension
+          
+          [default: auto]
+
+  -v, --verbose...
+          Increase logging verbosity. -v info, -vv debug, -vvv trace. `RUST_LOG=<level>` overrides; `RUST_LOG=<target>=<level>` refines
+
+      --analyzer <ANALYZER>
+          Which analyzer to run
+          
+          [default: todofixme]
+
+  -q, --quiet
+          Decrease logging (suppress info; errors still print)
+
+      --color <COLOR>
+          When to use colored output
+          
+          [default: auto]
+          [possible values: auto, always, never]
+
+      --format <FORMAT>
+          Output format. `auto` picks human on a TTY, jsonl when piped
+
+          Possible values:
+          - auto:  Human on a TTY, jsonl when piped
+          - human: Colored `file:line:col` lines
+          - jsonl: One JSON object per finding, one per line
+          
+          [default: auto]
+
+      --no-cache
+          Skip the analysis cache for this run (no read, no write)
+
+  -y, --yes
+          Assume yes for any guard prompt. Required for non-interactive runs of extensions whose group manifest sets `confirm = true`
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+EXAMPLES:
+    qli analyze src/                     Analyze a directory (auto-detect languages).
+    qli analyze foo.py bar.ts            Analyze specific files.
+    qli analyze --analyzer defrefs src/  Extract definitions and references.
+    qli analyze foo.py | jq .            Machine-readable jsonl (auto when piped).
+"""
+stderr = ""

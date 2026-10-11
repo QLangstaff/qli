@@ -14,12 +14,18 @@ use std::path::PathBuf;
 use cargo_metadata::MetadataCommand;
 
 /// Direct dependencies (`[dependencies]`, not `[dev-dependencies]`) that
-/// `qli-core` is allowed to declare. The list starts empty: the crate
-/// currently has zero direct deps and must justify every addition.
+/// `qli-core` is allowed to declare. Every entry must be justified below as
+/// pure (no I/O, no global state) — "convenient" is not a justification.
+///
+/// - `serde` — derive-based serialization of the engine's data types
+///   (`Diagnostic`, `Symbol`, …). Pure: it turns values into/from bytes and
+///   touches no I/O or globals.
+/// - `blake3` — content hashing for the cache key (`cache::CacheKey`). Pure:
+///   a hash function over in-memory bytes.
 ///
 /// `[dev-dependencies]` are intentionally NOT gated — `cargo_metadata` is
 /// the most obvious example: it's a test-only dep used by *this* test.
-const ALLOWED_DIRECT_DEPENDENCIES: &[&str] = &[];
+const ALLOWED_DIRECT_DEPENDENCIES: &[&str] = &["serde", "blake3"];
 
 #[test]
 fn qli_core_has_no_unallowlisted_direct_dependencies() {

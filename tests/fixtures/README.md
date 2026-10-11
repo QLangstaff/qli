@@ -17,9 +17,12 @@ by analyzer / parser / SCIP-emitter tests. Per-language subdirs are created
 **by the phase that introduces the language adapter or analyzer**, not
 preemptively here:
 
-- `tests/fixtures/python/` and `tests/fixtures/typescript/` land in
-  Phase 2H (TODO/FIXME analyzer fixtures) and Phase 2I (def/ref extractor
-  fixtures, including a multi-file case for cross-file references).
+- `tests/fixtures/python/` and `tests/fixtures/typescript/` landed in
+  Phase 2H/2I. Each ships a `sample.{py,ts}` exercising both analyzers: the
+  four TODO/FIXME markers (in line and block comments, plus a string-literal
+  `TODO` that must NOT be flagged) and a set of definitions/references
+  (`foo` defined and called → resolved; `bar` called but undefined →
+  unresolved). Cross-file resolution is out of scope until Phase 4.
 - `tests/fixtures/csharp/` lands in Phase 2.5.
 - `tests/fixtures/angular/` lands in Phase 2.6.
 - Phase 3 (LSP) and Phase 4 (SCIP) reuse the Phase 2H/2I fixtures rather

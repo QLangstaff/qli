@@ -1,3 +1,5 @@
+mod analysis_cache;
+mod analyze;
 mod cli;
 mod exit;
 mod ext;
@@ -103,6 +105,7 @@ fn dispatch(
             root.print_help().context("could not print help")?;
             Ok(exit::SUCCESS)
         }
+        Some(("analyze", sub)) => analyze::run(sub),
         Some(("completions", sub)) => {
             let shell: Shell = *sub.get_one::<Shell>("shell").expect("required by clap");
             let bin_name = root.get_name().to_string();
@@ -125,9 +128,20 @@ fn dispatch_ext(matches: &ArgMatches, discovery: &qli_ext::Discovery) -> anyhow:
         "list" => dispatch_ext_list(sub, discovery),
         "which" => dispatch_ext_which(sub, discovery),
         "install-defaults" => dispatch_ext_install_defaults(sub),
+        "cache" => dispatch_ext_cache(sub),
         other => {
             anyhow::bail!("unknown `qli ext` action: `{other}`");
         }
+    }
+}
+
+fn dispatch_ext_cache(matches: &ArgMatches) -> anyhow::Result<u8> {
+    let (action, sub) = matches
+        .subcommand()
+        .context("missing `qli ext cache` subcommand; try `qli ext cache clean`")?;
+    match action {
+        "clean" => analyze::cache_clean(sub),
+        other => anyhow::bail!("unknown `qli ext cache` action: `{other}`"),
     }
 }
 

@@ -1,0 +1,24 @@
+[package]
+name = "qli-analyzers"
+description = "Polyglot analyzers (TODO/FIXME, def+ref) for the qli code-analysis CLI."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["qli", "code-analysis", "analyzer", "tree-sitter", "diagnostics"]
+categories = ["development-tools"]
+
+[dependencies]
+qli-core = { path = "../qli-core", version = "0.1.2" }
+qli-lang = { path = "../qli-lang", version = "0.1.2" }
+tree-sitter = "0.25"
+streaming-iterator = "0.1"
+regex = "1"
+
+[dev-dependencies]
+qli-lang-python = { path = "../qli-lang-python", version = "0.1.2" }
+qli-lang-typescript = { path = "../qli-lang-typescript", version = "0.1.2" }
+
+[lints]
+workspace = true

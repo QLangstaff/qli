@@ -9,6 +9,10 @@ rust-version.workspace = true
 keywords = ["qli", "code-analysis", "engine", "polyglot", "tree-sitter"]
 categories = ["development-tools"]
 
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+blake3 = "1"
+
 [dev-dependencies]
 cargo_metadata = "0.18"
 

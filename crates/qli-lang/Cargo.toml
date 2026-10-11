@@ -9,5 +9,9 @@ rust-version.workspace = true
 keywords = ["qli", "tree-sitter", "language", "parser", "polyglot"]
 categories = ["development-tools", "parser-implementations"]
 
+[dependencies]
+qli-core = { path = "../qli-core", version = "0.1.2" }
+tree-sitter = "0.25"
+
 [lints]
 workspace = true

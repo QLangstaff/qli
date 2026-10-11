@@ -1,4 +1,6 @@
-use clap::{ColorChoice, Parser, Subcommand};
+use std::path::PathBuf;
+
+use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -32,6 +34,30 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    /// Analyze source files for diagnostics or definitions/references.
+    #[command(after_help = ANALYZE_AFTER_HELP)]
+    Analyze {
+        /// Files or directories to analyze. Directories are walked
+        /// (respecting `.gitignore`); unsupported files are skipped.
+        #[arg(value_name = "PATH", required = true)]
+        paths: Vec<PathBuf>,
+
+        /// Language to parse as, or `auto` to detect from the file extension.
+        #[arg(long, default_value = "auto")]
+        lang: String,
+
+        /// Which analyzer to run.
+        #[arg(long, default_value = "todofixme")]
+        analyzer: String,
+
+        /// Output format. `auto` picks human on a TTY, jsonl when piped.
+        #[arg(long, value_enum, default_value_t = FormatArg::Auto)]
+        format: FormatArg,
+
+        /// Skip the analysis cache for this run (no read, no write).
+        #[arg(long)]
+        no_cache: bool,
+    },
     /// Generate shell completions.
     #[command(after_help = COMPLETIONS_AFTER_HELP)]
     Completions {
@@ -76,6 +102,35 @@ pub enum ExtAction {
         #[arg(long)]
         force: bool,
     },
+    /// Manage the on-disk analysis cache.
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum CacheAction {
+    /// Evict cached analysis results.
+    Clean {
+        /// Remove every cached entry.
+        #[arg(long, conflicts_with = "older_than")]
+        all: bool,
+        /// Remove entries older than this many days.
+        #[arg(long, value_name = "DAYS")]
+        older_than: Option<u64>,
+    },
+}
+
+/// CLI-level output format, adding `auto` over [`qli_outputs::Format`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug, ValueEnum)]
+pub enum FormatArg {
+    /// Human on a TTY, jsonl when piped.
+    Auto,
+    /// Colored `file:line:col` lines.
+    Human,
+    /// One JSON object per finding, one per line.
+    Jsonl,
 }
 
 const ROOT_AFTER_HELP: &str = "\
@@ -83,6 +138,14 @@ EXAMPLES:
     qli --version                       Print qli's version.
     qli completions zsh > ~/.zsh/_qli   Generate zsh completion script.
     NO_COLOR=1 qli --help               Disable colored output.
+";
+
+const ANALYZE_AFTER_HELP: &str = "\
+EXAMPLES:
+    qli analyze src/                     Analyze a directory (auto-detect languages).
+    qli analyze foo.py bar.ts            Analyze specific files.
+    qli analyze --analyzer defrefs src/  Extract definitions and references.
+    qli analyze foo.py | jq .            Machine-readable jsonl (auto when piped).
 ";
 
 const COMPLETIONS_AFTER_HELP: &str = "\
