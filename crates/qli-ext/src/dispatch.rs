@@ -58,8 +58,9 @@ impl std::fmt::Debug for DispatchOptions<'_> {
 ///
 /// The handler calls [`DispatchSignals::on_signal`] when SIGINT/SIGTERM
 /// fires; the dispatcher registers/clears the running child's PID and reads
-/// `was_interrupted()` after the child exits to decide between `Finish` and
-/// `Interrupted` audit events.
+/// `was_interrupted()` after the child exits. That flag is one of two inputs
+/// to the `Finish`-vs-`Interrupted` audit decision — the child's own wait
+/// status is the other (see [`killed_by_interrupt`]).
 #[derive(Debug, Default)]
 pub struct DispatchSignals {
     interrupted: AtomicBool,
@@ -213,9 +214,13 @@ where
     let duration_ms = started.elapsed().as_millis();
     let code = exit_code(status);
 
-    // 8. Audit finish (or interrupted, if the signal handler tagged the run).
+    // 8. Audit finish (or interrupted). The wait status is authoritative when
+    // the child died of SIGINT/SIGTERM: a terminal Ctrl+C signals the whole
+    // process group, so the child can exit — and `wait` return — before the
+    // handler thread has run `on_signal`. The handler flag covers the other
+    // direction: a child that traps the forwarded SIGTERM and exits normally.
     if let Some(path) = &audit_path {
-        let event = if opts.signals.was_interrupted() {
+        let event = if opts.signals.was_interrupted() || killed_by_interrupt(status) {
             AuditEvent::Interrupted {
                 timestamp: Utc::now(),
                 group: group.name.clone(),
@@ -279,6 +284,20 @@ fn exit_code(status: ExitStatus) -> i32 {
 #[cfg(not(unix))]
 fn exit_code(status: ExitStatus) -> i32 {
     status.code().unwrap_or(1)
+}
+
+/// Whether the child was terminated by SIGINT or SIGTERM. Other fatal
+/// signals (SIGSEGV, SIGKILL, ...) are crashes, not interrupts, and stay
+/// `Finish` events carrying their `128 + signo` exit code.
+#[cfg(unix)]
+fn killed_by_interrupt(status: ExitStatus) -> bool {
+    use std::os::unix::process::ExitStatusExt;
+    matches!(status.signal(), Some(2 | 15))
+}
+
+#[cfg(not(unix))]
+fn killed_by_interrupt(_status: ExitStatus) -> bool {
+    false
 }
 
 #[cfg(unix)]
@@ -532,6 +551,42 @@ mod tests {
         );
         assert!(lines[1].contains("\"signal\":\"SIGTERM\""));
         assert!(lines[1].contains("\"exit_code\":143"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn child_killed_by_sigint_writes_interrupted_audit_without_handler_flag() {
+        let tmp = tempfile::tempdir().unwrap();
+        let script = tmp.path().join("self-interrupt");
+        // The child dies of SIGINT and `on_signal` never runs — the state a
+        // process-group Ctrl+C leaves when the child exits before the handler
+        // thread is scheduled.
+        std::fs::write(&script, "#!/bin/sh\nkill -INT $$\nsleep 60\n").unwrap();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&script).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&script, perms).unwrap();
+        }
+        let audit_path = tmp.path().join("audit.log");
+        let g = group(manifest(false, &[], audit_path.to_str(), Vec::new()));
+        let e = extension(script);
+        let resolver = TestResolver::new();
+        let confirm = AlwaysYes;
+        let o = opts(&resolver, &confirm, DispatchSignals::new());
+        let code = run(&g, &e, std::iter::empty::<&str>(), &o).unwrap();
+
+        assert_eq!(code, 130, "expected SIGINT exit code 130, got {code}");
+        let audit_body = std::fs::read_to_string(&audit_path).unwrap();
+        let lines: Vec<&str> = audit_body.lines().collect();
+        assert_eq!(lines.len(), 2, "expected start + interrupted: {audit_body}");
+        assert!(
+            lines[1].contains("\"event\":\"interrupted\""),
+            "expected interrupted event, got: {}",
+            lines[1],
+        );
+        assert!(lines[1].contains("\"signal\":\"SIGINT\""));
+        assert!(lines[1].contains("\"exit_code\":130"));
     }
 
     #[test]
