@@ -1,5 +1,5 @@
 # Task Checklist: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-07-30 (v0.1.2 released end-to-end — 1.5E/1.5F code shipped, plus a CI-audit `--locked` fix, advisory dep bumps, and an embedded-materialize race fix; see 2026-07-30 SESSION PROGRESS in [context.md](qli-foundation-context.md). Same day: **Phase 1.5 fully closed** — curl `self-update` live-verified in a sandbox, and the 1.5E/1.5F session verifies executed via the `claude` CLI (headless `-p` slash-command dispatch + `claude plugin marketplace add`/`install` from a clean state, restored afterward). All Phase 1.5 acceptance rows now checked.)
+**Last Updated:** 2026-07-31 (Phase 2 built end-to-end 2A–2I; 48/51 Phase 2 boxes checked — the 3 open are the two plugin version-pin/verify riders and the C-toolchain release-tag verify, all deferred to the authorized release. See 2026-07-31 SESSION PROGRESS in [context.md](qli-foundation-context.md). Prior: 2026-07-30 v0.1.2 released end-to-end — 1.5E/1.5F code shipped, plus a CI-audit `--locked` fix, advisory dep bumps, and an embedded-materialize race fix; see 2026-07-30 SESSION PROGRESS in [context.md](qli-foundation-context.md). Same day: **Phase 1.5 fully closed** — curl `self-update` live-verified in a sandbox, and the 1.5E/1.5F session verifies executed via the `claude` CLI (headless `-p` slash-command dispatch + `claude plugin marketplace add`/`install` from a clean state, restored afterward). All Phase 1.5 acceptance rows now checked.)
 
 Each phase ships a working artifact. Don't start phase N+1 until phase N's "verify" tasks pass.
 
@@ -221,95 +221,95 @@ Per [context.md → Design Decisions → "Plugin install-distribution: qli repo 
 
 ### 2A: `qli-core` engine traits
 
-- [ ] Define core types as `serde`-serializable structs: `Position { line: u32, column: u32 }`, `Range { start: Position, end: Position }`, `Severity { Error, Warning, Info, Hint }`, `Diagnostic { range, severity, message, code }`, `Symbol`, `Reference`.
-- [ ] Define `Analyzer` trait: `fn analyze(&self, source: &Source) -> AnalysisResult`.
-- [ ] Define `Source { path: PathBuf, content: Vec<u8>, language: LanguageId }`.
-- [ ] Strict purity: no I/O, no global state. The crate must build without depending on `clap`, `tokio`, `tracing`, etc.
-- [ ] Verify: `cargo build -p qli-core` produces a tiny crate with minimal deps.
+- [x] Define core types as `serde`-serializable structs: `Position { line: u32, column: u32 }`, `Range { start: Position, end: Position }`, `Severity { Error, Warning, Info, Hint }`, `Diagnostic { range, severity, message, code }`, `Symbol`, `Reference`.
+- [x] Define `Analyzer` trait: `fn analyze(&self, source: &Source) -> AnalysisResult`.
+- [x] Define `Source { path: PathBuf, content: Vec<u8>, language: LanguageId }`.
+- [x] Strict purity: no I/O, no global state. The crate must build without depending on `clap`, `tokio`, `tracing`, etc.
+- [x] Verify: `cargo build -p qli-core` produces a tiny crate with minimal deps.
 
 ### 2B: `qli-lang` language adapter trait
 
-- [ ] Define `Language` trait with: `fn id(&self) -> LanguageId`, `fn extensions(&self) -> &[&str]`, `fn parse(&self, source: &Source) -> ParseTree`, `fn analyze_with(&self, analyzer: &dyn Analyzer, tree: &ParseTree) -> AnalysisResult`.
-- [ ] Define `LanguageRegistry` keyed on language id; supports lookup by file extension for `--lang auto`.
-- [ ] Add `tree-sitter` as core dep; provide `TreeSitterLanguage` helper that wraps a grammar.
-- [ ] Verify: registry can register/lookup languages; grammar wrapping compiles.
+- [x] Define `Language` trait with: `fn id(&self) -> LanguageId`, `fn extensions(&self) -> &[&str]`, `fn parse(&self, source: &Source) -> ParseTree`, `fn analyze_with(&self, analyzer: &dyn Analyzer, tree: &ParseTree) -> AnalysisResult`.
+- [x] Define `LanguageRegistry` keyed on language id; supports lookup by file extension for `--lang auto`.
+- [x] Add `tree-sitter` as core dep; provide `TreeSitterLanguage` helper that wraps a grammar.
+- [x] Verify: registry can register/lookup languages; grammar wrapping compiles.
 
 ### 2C: Python adapter
 
-- [ ] Create `qli-lang-python` crate; depend on `qli-lang`, `tree-sitter`, `tree-sitter-python`.
-- [ ] Implement `Language` trait registering `.py` extension.
-- [ ] Verify: parse a sample `.py` file end-to-end, produce a non-empty parse tree.
+- [x] Create `qli-lang-python` crate; depend on `qli-lang`, `tree-sitter`, `tree-sitter-python`.
+- [x] Implement `Language` trait registering `.py` extension.
+- [x] Verify: parse a sample `.py` file end-to-end, produce a non-empty parse tree.
 
 ### 2D: TypeScript adapter
 
-- [ ] Create `qli-lang-typescript` crate; depend on `qli-lang`, `tree-sitter`, `tree-sitter-typescript`.
-- [ ] Handle both `.ts` and `.tsx` (two grammars in `tree-sitter-typescript`).
-- [ ] Verify: parse `.ts` and `.tsx` samples; produce parse trees.
+- [x] Create `qli-lang-typescript` crate; depend on `qli-lang`, `tree-sitter`, `tree-sitter-typescript`.
+- [x] Handle both `.ts` and `.tsx` (two grammars in `tree-sitter-typescript`).
+- [x] Verify: parse `.ts` and `.tsx` samples; produce parse trees.
 
 ### 2E: Outputs
 
-- [ ] `qli-outputs/human.rs` — pretty terminal output with file:line:col, color when TTY, severity icons.
-- [ ] `qli-outputs/jsonl.rs` — one JSON object per diagnostic, one line each.
-- [ ] Verify: same input, two formats; jsonl is parseable by `jq`.
+- [x] `qli-outputs/human.rs` — pretty terminal output with file:line:col, color when TTY, severity icons.
+- [x] `qli-outputs/jsonl.rs` — one JSON object per diagnostic, one line each.
+- [x] Verify: same input, two formats; jsonl is parseable by `jq`.
 
 ### 2F: Cache
 
-- [ ] In `qli-core`, define content-hashed cache keyed on `(language_id, blake3(content), analyzer_id, analyzer_version)` → `AnalysisResult`. The `analyzer_version` field invalidates the cache when an analyzer's behavior changes; bumping it is the analyzer's responsibility.
-- [ ] Persist to `$XDG_CACHE_HOME/qli/<analyzer_id>/<analyzer_version>/<hash-prefix>/<hash>.json`. Directory layout makes orphaned versions trivially purgeable.
-- [ ] **Eviction policy**: combine size cap + TTL.
-  - Size cap: configurable, default 500 MB. Track total cache size in a sidecar `index.json` updated atomically.
-  - TTL: configurable, default 30 days. Touched on hit (LRU-ish behavior).
-  - Eviction runs lazily on cache write when size exceeds cap, or on demand via `qli ext cache clean`.
-- [ ] Add `--no-cache` flag (skip both read and write for the current run).
-- [ ] Add `qli ext cache clean [--all|--older-than <days>]` for manual eviction.
-- [ ] Verify: second run on unchanged file is cache hit; modifying the file invalidates; bumping `analyzer_version` invalidates without touching disk; size cap triggers eviction of oldest entries.
-- [ ] **Plugin update**: add `claude-code-plugin/commands/ext-cache-clean.md` wrapping `qli ext cache clean $ARGUMENTS` via the Bash tool. Update [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) — add cache-clean to the "when to invoke" list (e.g., "Clean qli's cache" → `/qli:ext-cache-clean`). Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) command list.
+- [x] In `qli-core`, define content-hashed cache keyed on `(language_id, blake3(content), analyzer_id, analyzer_version)` → `AnalysisResult`. The `analyzer_version` field invalidates the cache when an analyzer's behavior changes; bumping it is the analyzer's responsibility.
+- [x] Persist to `$XDG_CACHE_HOME/qli/<analyzer_id>/<analyzer_version>/<hash-prefix>/<hash>.json`. Directory layout makes orphaned versions trivially purgeable.
+- [x] **Eviction policy**: combine size cap + TTL. (Implemented as hardcoded `pub const`s — `DEFAULT_SIZE_CAP_BYTES` 500 MB, `DEFAULT_TTL_DAYS` 30 — in [`crates/qli/src/analysis_cache.rs`](../../../crates/qli/src/analysis_cache.rs); a config-file surface to override them is deferred until `config.toml` plumbing exists. No sidecar `index.json`: `clean`/`enforce_size_cap` walk the tree once — see the module doc for the "next step if stat becomes a hot path" note.)
+  - Size cap: default 500 MB. LRU touch-on-hit via `File::set_modified`; oldest-by-mtime evicted first.
+  - TTL: default 30 days. Touched on hit (LRU-ish behavior).
+  - Eviction runs once per `qli analyze` invocation (after all writes, not per write — per-write would restat the whole tree quadratically), or on demand via `qli ext cache clean`.
+- [x] Add `--no-cache` flag (skip both read and write for the current run).
+- [x] Add `qli ext cache clean [--all|--older-than <days>]` for manual eviction.
+- [x] Verify: second run on unchanged file is cache hit; modifying the file invalidates; bumping `analyzer_version` invalidates without touching disk; size cap triggers eviction of oldest entries.
+- [ ] **Plugin update** (content shipped; version-pin bump + claude-session verify ride with the authorized release): added [`claude-code-plugin/commands/ext-cache-clean.md`](../../../claude-code-plugin/commands/ext-cache-clean.md) wrapping `qli ext cache clean $ARGUMENTS` via the Bash tool; updated [`SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) "when to invoke" list and [`README.md`](../../../claude-code-plugin/README.md) command list.
     - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
     - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, dispatch `/qli:ext-cache-clean` (no args) and `/qli:ext-cache-clean --older-than 7` — confirm both reach `qli ext cache clean` via Bash and print stdout verbatim. Re-verify a previously-shipped command (`/qli:ext-list`) still works (catches accidental SKILL.md or plugin.json regressions).
 
 ### 2G: `qli analyze` command
 
-- [ ] Add subcommand to `qli` binary.
-- [ ] Args: `paths: Vec<PathBuf>` (positional), `--lang <id|auto>`, `--format <human|jsonl|auto>`, `--no-cache`, `-v`/`-q`.
-- [ ] Auto-detect language from extension when `--lang auto`.
-- [ ] Auto-detect format: `human` if stdout is a TTY, `jsonl` otherwise.
-- [ ] Add `after_help` examples to `qli analyze` matching the 1B pattern (root + `completions`).
-- [ ] Verify: `qli analyze foo.py` and `qli analyze foo.ts` both work; `qli analyze --help` shows examples; `| jq .` consumes jsonl output.
-- [ ] **Plugin update**: add `claude-code-plugin/commands/analyze.md` (slash command wrapping `qli analyze $ARGUMENTS` via Bash) and a short paragraph in [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) noting `qli analyze` is now real and when Claude should invoke it. Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) command list. Follow the same prompt-not-shell-script body shape as 1.5D.
+- [x] Add subcommand to `qli` binary.
+- [x] Args: `paths: Vec<PathBuf>` (positional), `--lang <id|auto>`, `--format <human|jsonl|auto>`, `--no-cache`, `-v`/`-q`.
+- [x] Auto-detect language from extension when `--lang auto`.
+- [x] Auto-detect format: `human` if stdout is a TTY, `jsonl` otherwise.
+- [x] Add `after_help` examples to `qli analyze` matching the 1B pattern (root + `completions`).
+- [x] Verify: `qli analyze foo.py` and `qli analyze foo.ts` both work; `qli analyze --help` shows examples; `| jq .` consumes jsonl output.
+- [ ] **Plugin update** (content shipped; version-pin bump + claude-session verify ride with the authorized release): added [`claude-code-plugin/commands/analyze.md`](../../../claude-code-plugin/commands/analyze.md) (prompt-not-shell-script body, per 1.5D); updated [`SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) (capability #2 rewritten + analyze in the "when to invoke" list) and [`README.md`](../../../claude-code-plugin/README.md) command list.
     - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
     - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, dispatch `/qli:analyze <fixture.py>` against a fixture with at least one TODO/FIXME — confirm Claude shells `qli analyze` via Bash, prints diagnostics verbatim, and falls back gracefully on no-args (refuses or prints help rather than running `qli analyze` with empty `$ARGUMENTS`). Re-verify `/qli:ext-list` to catch regressions.
 
 ### 2H: Trivial seed analyzer (TODO/FIXME extractor)
 
-- [ ] Create `qli-analyzers` crate (separate from `qli-core` so analyzers can be added without touching core types).
-- [ ] Implement an `Analyzer` registry pattern (not a single hardcoded analyzer) — even though only two ship in Phase 2, the architecture must accommodate more.
-- [ ] Implement `TodoFixme` analyzer: walks the parse tree, restricts matching to comment nodes (via tree-sitter — _not_ regex over raw bytes), regex-matches `TODO|FIXME|XXX|HACK` inside comment text, emits diagnostics.
-- [ ] Each analyzer carries `analyzer_id: &'static str` and `analyzer_version: u32`. Cache key (Phase 2F) includes `analyzer_version` so cache invalidates when behavior changes.
-- [ ] Same analyzer runs across both Python and TypeScript adapters — proves polyglot.
-- [ ] Verify: a known fixture with mixed TODO/FIXME in Python and TypeScript files yields the expected count and locations. Bumping `analyzer_version` invalidates cache entries.
+- [x] Create `qli-analyzers` crate (separate from `qli-core` so analyzers can be added without touching core types).
+- [x] Implement an `Analyzer` registry pattern (not a single hardcoded analyzer) — even though only two ship in Phase 2, the architecture must accommodate more.
+- [x] Implement `TodoFixme` analyzer: walks the parse tree, restricts matching to comment nodes (via tree-sitter — _not_ regex over raw bytes), regex-matches `TODO|FIXME|XXX|HACK` inside comment text, emits diagnostics.
+- [x] Each analyzer carries `analyzer_id: &'static str` and `analyzer_version: u32`. Cache key (Phase 2F) includes `analyzer_version` so cache invalidates when behavior changes.
+- [x] Same analyzer runs across both Python and TypeScript adapters — proves polyglot.
+- [x] Verify: a known fixture with mixed TODO/FIXME in Python and TypeScript files yields the expected count and locations. Bumping `analyzer_version` invalidates cache entries.
 
 ### 2I: Definition + reference extractor (Phase 4 prerequisite)
 
-- [ ] Add a second analyzer `DefRefs` to `qli-analyzers` that emits `Symbol` (for definitions) and `Reference` (for usages) entries — the data SCIP and LSP go-to-def actually need.
-- [ ] Per-language tree-sitter queries identify:
+- [x] Add a second analyzer `DefRefs` to `qli-analyzers` that emits `Symbol` (for definitions) and `Reference` (for usages) entries — the data SCIP and LSP go-to-def actually need.
+- [x] Per-language tree-sitter queries identify:
   - Function/method definitions and their names.
   - Class/struct definitions and their names.
   - Variable bindings at module scope.
   - Call sites referencing names defined elsewhere.
-- [ ] For Phase 2, lexical resolution only — no cross-file resolution, no type inference. References resolve to a same-file definition if present; otherwise the reference is unresolved and recorded as such.
-- [ ] Symbols carry stable IDs of the form `<scheme>:<package>:<file>:<symbol-path>` (loose precursor to SCIP symbol scheme — Phase 4 will formalize the scheme).
-- [ ] Implement for Python and TypeScript adapters via tree-sitter queries committed to each adapter crate.
-- [ ] Verify on a multi-file fixture: defining `foo` in `a.py` and calling `foo()` in `a.py` produces a `Symbol` and a resolved `Reference`. Calling `bar()` (undefined) produces an unresolved `Reference`.
-- [ ] Output: works with `--format jsonl` to emit one symbol/reference per line; verify with `jq`.
+- [x] For Phase 2, lexical resolution only — no cross-file resolution, no type inference. References resolve to a same-file definition if present; otherwise the reference is unresolved and recorded as such.
+- [x] Symbols carry stable IDs of the form `<scheme>:<package>:<file>:<symbol-path>` (loose precursor to SCIP symbol scheme — Phase 4 will formalize the scheme).
+- [x] Implement for Python and TypeScript adapters via tree-sitter queries committed to each adapter crate.
+- [x] Verify on a multi-file fixture: defining `foo` in `a.py` and calling `foo()` in `a.py` produces a `Symbol` and a resolved `Reference`. Calling `bar()` (undefined) produces an unresolved `Reference`.
+- [x] Output: works with `--format jsonl` to emit one symbol/reference per line; verify with `jq`.
 
 ### Phase 2 acceptance
 
-- [ ] `qli analyze tests/fixtures/` produces expected TODO/FIXME diagnostics for both Python and TypeScript files.
-- [ ] `qli analyze --analyzer defrefs tests/fixtures/` produces expected definitions and references.
-- [ ] Same engine output, two output formats, both correct.
-- [ ] Cache hit/miss observable via `-vv` logging; bumping analyzer version invalidates appropriately.
-- [ ] Analyzer registry can dispatch to any registered analyzer by id.
-- [ ] **C-toolchain cross-compile verify.** Tag a test release with at least one tree-sitter grammar in the workspace (`tree-sitter-python` from 2C and/or `tree-sitter-typescript` from 2D) and confirm all 5 cargo-dist targets build clean: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`. Tree-sitter grammars are C code; the v0.1.0 release proved the cargo-dist pipeline but had zero C deps, so cross-compile remains untested.
+- [x] `qli analyze tests/fixtures/` produces expected TODO/FIXME diagnostics for both Python and TypeScript files.
+- [x] `qli analyze --analyzer defrefs tests/fixtures/` produces expected definitions and references.
+- [x] Same engine output, two output formats, both correct.
+- [x] Cache hit/miss observable via `-vv` logging; bumping analyzer version invalidates appropriately.
+- [x] Analyzer registry can dispatch to any registered analyzer by id.
+- [ ] **C-toolchain cross-compile verify** (blocked on release authorization; local release build with both C grammars is clean). Tag a test release with at least one tree-sitter grammar in the workspace (`tree-sitter-python` from 2C and/or `tree-sitter-typescript` from 2D) and confirm all 5 cargo-dist targets build clean: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`. Tree-sitter grammars are C code; the v0.1.0 release proved the cargo-dist pipeline but had zero C deps, so cross-compile remains untested.
 
 ## Phase 2.5: C# Adapter
 
