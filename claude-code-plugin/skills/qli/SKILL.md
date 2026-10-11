@@ -1,6 +1,6 @@
 ---
 name: qli
-description: "qli is a polyglot CLI: extension dispatch (run user-defined `dev`/`prod`/`org` scripts) plus planned code analysis. Use when the user references `qli`, asks about discovering or locating their qli extensions, or wants to set up qli defaults. Do NOT autonomously run user-defined extensions (`qli dev|prod|org <name>`) — the user invokes those directly."
+description: "qli is a polyglot CLI: code analysis (`qli analyze` for TODO/FIXME diagnostics and definitions/references over Python & TypeScript) plus extension dispatch (run user-defined `dev`/`prod`/`org` scripts). Use when the user references `qli`, wants to analyze code with qli, or asks about discovering, locating, or setting up their qli extensions. Do NOT autonomously run user-defined extensions (`qli dev|prod|org <name>`) — the user invokes those directly."
 ---
 
 # qli
@@ -8,18 +8,20 @@ description: "qli is a polyglot CLI: extension dispatch (run user-defined `dev`/
 `qli` is a single Rust binary that ships two capabilities behind one CLI:
 
 1. **Extension dispatch.** Any-language scripts (bash, python, ...) organized into groups (`dev`, `prod`, `org`, ...) discovered from `$XDG_DATA_HOME/qli/extensions/<group>/<name>` and from `qli-<group>-<name>` binaries on `PATH`. Each group has a `_manifest.toml` declaring guardrails (env requirement, confirmation prompt, audit log, secrets injection). The dispatcher enforces guardrails before exec'ing the script.
-2. **Polyglot code analysis** — planned for Phase 2+ (not yet shipped). When it lands, it will expose `qli analyze` (CLI), `qli lsp` (language server), and `qli index` (SCIP emitter) over a shared Rust engine.
+2. **Polyglot code analysis.** `qli analyze` parses Python and TypeScript/TSX via tree-sitter and runs an analyzer over the parse tree: `todofixme` (TODO/FIXME/XXX/HACK markers in comments) or `defrefs` (definition + reference extraction). Results render as colored human output on a TTY or JSON Lines when piped, cached by content hash. `qli lsp` (language server) and `qli index` (SCIP emitter) are planned for later phases over the same shared Rust engine.
 
 ## When to invoke `qli` via Bash
 
 Run `qli` via the Bash tool when the user asks any of these:
 
+- **"Analyze these files / find TODOs / list the definitions"** → `qli analyze <paths>`. Add `--analyzer defrefs` for definitions/references (default is `todofixme`). Auto-detects language and format; pass `--format jsonl` when you need to parse the output.
+- **"Clean qli's analysis cache"** → `qli ext cache clean` (or `--all` / `--older-than <days>`).
 - **"What qli extensions do I have?"** → `qli ext list` (or `qli ext list --json` if downstream parsing is implied).
 - **"Where is my `<group> <name>` extension?" / "Locate ..."** → `qli ext which <group> <name>`.
 - **"Set up qli defaults" / "Install qli's default extensions"** → `qli ext install-defaults` (the user can re-run with `--force` to overwrite their edits).
 - **"Generate qli shell completions for <shell>"** → `qli completions <shell>`. Pipe target depends on the user's shell.
 
-These also have dedicated slash commands: `/qli:ext-list`, `/qli:ext-which`, `/qli:ext-install-defaults`, `/qli:completions`.
+These also have dedicated slash commands: `/qli:analyze`, `/qli:ext-cache-clean`, `/qli:ext-list`, `/qli:ext-which`, `/qli:ext-install-defaults`, `/qli:completions`.
 
 ## When NOT to invoke `qli`
 
@@ -28,6 +30,7 @@ These also have dedicated slash commands: `/qli:ext-list`, `/qli:ext-which`, `/q
 
 ## Output discipline
 
+- `qli analyze` writes findings to **stdout** (colored human lines on a TTY, one JSON object per finding when piped). Warnings about unreadable/unparseable files go to stderr. Exit 0 even when findings exist — findings are data, not a command failure.
 - `qli ext list` writes data to **stdout** (tab-separated columns or JSON with `--json`).
 - `qli ext which` writes the path to stdout, or JSON with `--json`. Unknown extension exits 1 with a stderr error.
 - `qli ext install-defaults` writes status to **stderr** ("installed defaults to ...: wrote N, skipped M").

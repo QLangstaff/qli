@@ -8,12 +8,14 @@ Targets qli v0.1.2.
 
 - **Skill** ([`skills/qli/SKILL.md`](skills/qli/SKILL.md)) — tells Claude when to invoke qli via Bash, when not to (don't autonomously run user-defined `dev`/`prod`/`org` extensions or the `self-update` stub), and how to interpret qli's output.
 - **Slash commands** ([`commands/`](commands/)):
+    - `/qli:analyze <paths...> [--analyzer todofixme|defrefs] [--lang <id|auto>] [--format human|jsonl|auto]` — analyze Python/TypeScript for TODO/FIXME diagnostics or definitions/references
+    - `/qli:ext-cache-clean [--all | --older-than <days>]` — evict entries from qli's analysis cache
     - `/qli:ext-list` — list discovered extensions
     - `/qli:ext-which <group> <name>` — locate an extension
     - `/qli:ext-install-defaults [--force]` — install qli's embedded defaults to `$XDG_DATA_HOME/qli/extensions/`
     - `/qli:completions <bash|zsh|fish|powershell|elvish>` — generate a shell completion script
 
-Code-analysis slash commands (`/qli:analyze`, `/qli:index`) land alongside the `qli analyze` and `qli index` subcommands in Phase 2G and 4C. MCP server (`qli mcp`) is planned for Phase 5.
+The `/qli:index` slash command lands alongside the `qli index` subcommand in Phase 4C. MCP server (`qli mcp`) is planned for Phase 5.
 
 ## Install
 
