@@ -2,7 +2,7 @@
 
 A Claude Code plugin that bundles the qli skill (telling Claude when to invoke qli) and slash commands that wrap qli's user-facing surface.
 
-Targets qli v0.1.2.
+Targets qli v0.2.0.
 
 ## What's in this plugin
 

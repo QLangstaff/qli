@@ -991,7 +991,7 @@ dependencies = [
 
 [[package]]
 name = "qli"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "anstream 0.6.21",
  "anstyle",
@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "qli-analyzers"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "qli-core",
  "qli-lang",
@@ -1034,7 +1034,7 @@ dependencies = [
 
 [[package]]
 name = "qli-core"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "blake3",
  "cargo_metadata",
@@ -1043,7 +1043,7 @@ dependencies = [
 
 [[package]]
 name = "qli-ext"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "dialoguer",
@@ -1060,7 +1060,7 @@ dependencies = [
 
 [[package]]
 name = "qli-lang"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "qli-core",
  "tree-sitter",
@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "qli-lang-python"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "qli-core",
  "qli-lang",
@@ -1078,7 +1078,7 @@ dependencies = [
 
 [[package]]
 name = "qli-lang-typescript"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "qli-core",
  "qli-lang",
@@ -1088,7 +1088,7 @@ dependencies = [
 
 [[package]]
 name = "qli-outputs"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "anstyle",
  "qli-core",

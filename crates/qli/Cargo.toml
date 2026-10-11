@@ -11,13 +11,13 @@ keywords = ["cli", "code-analysis", "polyglot", "tree-sitter", "extensions"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
-qli-ext = { path = "../qli-ext", version = "0.1.2" }
-qli-core = { path = "../qli-core", version = "0.1.2" }
-qli-lang = { path = "../qli-lang", version = "0.1.2" }
-qli-lang-python = { path = "../qli-lang-python", version = "0.1.2" }
-qli-lang-typescript = { path = "../qli-lang-typescript", version = "0.1.2" }
-qli-analyzers = { path = "../qli-analyzers", version = "0.1.2" }
-qli-outputs = { path = "../qli-outputs", version = "0.1.2" }
+qli-ext = { path = "../qli-ext", version = "0.2.0" }
+qli-core = { path = "../qli-core", version = "0.2.0" }
+qli-lang = { path = "../qli-lang", version = "0.2.0" }
+qli-lang-python = { path = "../qli-lang-python", version = "0.2.0" }
+qli-lang-typescript = { path = "../qli-lang-typescript", version = "0.2.0" }
+qli-analyzers = { path = "../qli-analyzers", version = "0.2.0" }
+qli-outputs = { path = "../qli-outputs", version = "0.2.0" }
 
 clap = { version = "4", features = ["derive"] }
 ignore = "0.4"

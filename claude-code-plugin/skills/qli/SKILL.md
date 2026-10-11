@@ -48,4 +48,4 @@ Print `qli`'s output verbatim. Do not translate paths, summarize counts, or refo
 
 ## Version
 
-This skill targets `qli v0.1.2`. If `qli --version` reports a substantially different version (e.g., `0.2.x`+), check `qli --help` for the actual subcommand surface before invoking commands described here.
+This skill targets `qli v0.2.0`. If `qli --version` reports a substantially different version (e.g., `0.3.x`+), check `qli --help` for the actual subcommand surface before invoking commands described here.
