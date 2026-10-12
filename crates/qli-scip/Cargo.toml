@@ -10,7 +10,7 @@ keywords = ["qli", "scip", "code-analysis", "indexer", "protobuf"]
 categories = ["development-tools"]
 
 [dependencies]
-qli-core = { path = "../qli-core", version = "0.2.0" }
+qli-core = { path = "../qli-core", version = "0.3.0" }
 scip = "0.10.0"
 # Same version `scip` pins; named directly only for the `Message`/`Enum`
 # traits its generated types implement.

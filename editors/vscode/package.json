@@ -2,7 +2,7 @@
   "name": "qli-vscode",
   "displayName": "qli",
   "description": "TODO/FIXME diagnostics and same-file go-to-definition from the qli language server (qli lsp).",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "qlangstaff",
   "license": "MIT",
   "repository": {

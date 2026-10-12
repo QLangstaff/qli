@@ -10,7 +10,7 @@ keywords = ["qli", "tree-sitter", "language", "parser", "polyglot"]
 categories = ["development-tools", "parser-implementations"]
 
 [dependencies]
-qli-core = { path = "../qli-core", version = "0.2.0" }
+qli-core = { path = "../qli-core", version = "0.3.0" }
 tree-sitter = "0.25"
 
 [lints]

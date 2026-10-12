@@ -10,17 +10,17 @@ keywords = ["qli", "code-analysis", "analyzer", "tree-sitter", "diagnostics"]
 categories = ["development-tools"]
 
 [dependencies]
-qli-core = { path = "../qli-core", version = "0.2.0" }
-qli-lang = { path = "../qli-lang", version = "0.2.0" }
+qli-core = { path = "../qli-core", version = "0.3.0" }
+qli-lang = { path = "../qli-lang", version = "0.3.0" }
 tree-sitter = "0.25"
 streaming-iterator = "0.1"
 regex = "1"
 
 [dev-dependencies]
-qli-lang-csharp = { path = "../qli-lang-csharp", version = "0.2.0" }
-qli-lang-angular = { path = "../qli-lang-angular", version = "0.2.0" }
-qli-lang-python = { path = "../qli-lang-python", version = "0.2.0" }
-qli-lang-typescript = { path = "../qli-lang-typescript", version = "0.2.0" }
+qli-lang-csharp = { path = "../qli-lang-csharp", version = "0.3.0" }
+qli-lang-angular = { path = "../qli-lang-angular", version = "0.3.0" }
+qli-lang-python = { path = "../qli-lang-python", version = "0.3.0" }
+qli-lang-typescript = { path = "../qli-lang-typescript", version = "0.3.0" }
 
 [lints]
 workspace = true
