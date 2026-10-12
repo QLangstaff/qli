@@ -1,5 +1,5 @@
 # Task Checklist: qli — Polyglot Code Analysis CLI + Extension Framework
-**Last Updated:** 2026-10-11 (v0.2.0 released end-to-end — all 8 crates on crates.io, GitHub release + Homebrew tap live, C-toolchain cross-compile verified across all 5 targets, both new plugin slash commands live-verified. **Phase 2 fully closed, 51/51.** A SIGINT audit-race fix shipped alongside. Open follow-up is machine-state only: `brew upgrade qli` to replace the stale local Homebrew 0.1.1 that shadows cargo's 0.2.0 on `PATH`. See 2026-10-11 SESSION PROGRESS in [context.md](qli-foundation-context.md). Prior: 2026-07-31 Phase 2 built 2A–2I; 2026-07-30 v0.1.2 released end-to-end — 1.5E/1.5F code shipped, plus a CI-audit `--locked` fix, advisory dep bumps, and an embedded-materialize race fix; see 2026-07-30 SESSION PROGRESS in [context.md](qli-foundation-context.md). Same day: **Phase 1.5 fully closed** — curl `self-update` live-verified in a sandbox, and the 1.5E/1.5F session verifies executed via the `claude` CLI (headless `-p` slash-command dispatch + `claude plugin marketplace add`/`install` from a clean state, restored afterward). All Phase 1.5 acceptance rows now checked.)
+**Last Updated:** 2026-10-12 (Phases 2.5, 2.6, 3, 4, and 5 built, merged, and pushed to `main` at `7bd1730`; CI run [38293264922](https://github.com/QLangstaff/qli/actions/runs/38293264922) green on all 9 jobs. Open: the `Release 0.3.0` section. Prior: v0.2.0 released end-to-end — all 8 crates on crates.io, GitHub release + Homebrew tap live, C-toolchain cross-compile verified across all 5 targets, both new plugin slash commands live-verified. **Phase 2 fully closed, 51/51.** A SIGINT audit-race fix shipped alongside. Open follow-up is machine-state only: `brew upgrade qli` to replace the stale local Homebrew 0.1.1 that shadows cargo's 0.2.0 on `PATH`. See 2026-10-11 SESSION PROGRESS in [context.md](qli-foundation-context.md). Prior: 2026-07-31 Phase 2 built 2A–2I; 2026-07-30 v0.1.2 released end-to-end — 1.5E/1.5F code shipped, plus a CI-audit `--locked` fix, advisory dep bumps, and an embedded-materialize race fix; see 2026-07-30 SESSION PROGRESS in [context.md](qli-foundation-context.md). Same day: **Phase 1.5 fully closed** — curl `self-update` live-verified in a sandbox, and the 1.5E/1.5F session verifies executed via the `claude` CLI (headless `-p` slash-command dispatch + `claude plugin marketplace add`/`install` from a clean state, restored afterward). All Phase 1.5 acceptance rows now checked.)
 
 Each phase ships a working artifact. A phase or sub-phase starts when every item on its **Blocked by** line is checked; work with no shared blocker runs in parallel.
 
@@ -404,7 +404,7 @@ Per [context.md → Design Decisions → "Plugin install-distribution: qli repo 
 
 ### 4D: Validation
 
-- [ ] Install `scip` CLI in CI (binary release from Sourcegraph). The step is in [`ci.yml`](../../../.github/workflows/ci.yml) (`scip` v0.10.0, pinned checksums); open until it runs green on a runner.
+- [x] Install `scip` CLI in CI (binary release from Sourcegraph). The step is in [`ci.yml`](../../../.github/workflows/ci.yml) (`scip` v0.10.0, pinned checksums); open until it runs green on a runner. Green on both runners in run [38293264922](https://github.com/QLangstaff/qli/actions/runs/38293264922).
 - [x] Add an integration test: emit `index.scip` over a multi-file Python + TypeScript fixture, run `scip print index.scip`, assert expected symbols and references are present.
 - [x] Add a roundtrip test: write a fixture where `foo()` is defined in one file and called in another; verify the SCIP index records the reference resolving to the definition's symbol.
 - [ ] (Optional) Document running a local Sourcegraph instance against the index for visual sanity check.
@@ -449,15 +449,16 @@ Per [context.md → Design Decisions → "Plugin install-distribution: qli repo 
 
 - [x] `qli mcp` starts, completes the JSON-RPC handshake, returns 3 tools from `tools/list` (`qli_analyze`, `qli_index`, `qli_ext_list`).
 - [x] `tools/call` for all three returns correctly-shaped results matching their declared schemas.
-- [ ] Integration test green in CI.
+- [x] Integration test green in CI. Run [38293264922](https://github.com/QLangstaff/qli/actions/runs/38293264922): all 9 jobs green, including the new `msrv` job.
 - [x] `qli mcp` tool handlers call `qli-core` directly (verify by inspection: no `std::process::Command` invoking `qli` from inside the MCP handlers). Combined with the existing slash-command path (which shells `qli` and lands in the same `qli-core` engine), both surfaces resolve to one engine.
-- [ ] MCP-tool install path works on a clean machine: install the plugin via the 1.5F marketplace path (`/plugin marketplace add QLangstaff/qli` + `/plugin install qli@qli-plugins`), confirm the qli MCP server registers on session start and `qli_analyze`/`qli_index`/`qli_ext_list` appear in Claude Code's MCP listing.
+- [x] MCP-tool install path works on a clean machine: install the plugin via the 1.5F marketplace path (`/plugin marketplace add QLangstaff/qli` + `/plugin install qli@qli-plugins`), confirm the qli MCP server registers on session start and `qli_analyze`/`qli_index`/`qli_ext_list` appear in Claude Code's MCP listing. Verified 2026-10-12 from a state with no `qli-plugins` marketplace: `claude plugin marketplace add QLangstaff/qli` (clone at `7bd1730`) and `claude plugin install qli@qli-plugins`; a fresh headless session showed `plugin:qli:qli` connected with the 3 tools and `qli_analyze` returned 4 records. Marketplace and plugin removed afterward. The session ran with the locally built binary first on `PATH`, since no release has `qli mcp` yet.
 
 ## Release 0.3.0
 
 **Blocked by:** Phase 2.5, 2.6, 3, 4, and 5 acceptance. One release covers all five phases; no version bump happens while a phase is in flight.
 
-- [ ] Merge the plugin edits from 3B, 4C, and 5D.
+- [x] Merge the plugin edits from 3B, 4C, and 5D. Pushed to `main` in `529c537` ahead of the release; the version pins stay at 0.2.0 until the bump below.
+- [ ] Update the root [`README.md`](../../../README.md) for the new languages and the `qli lsp`, `qli index`, and `qli mcp` commands.
 - [ ] Bump the workspace version, every crate's path-dependency version, [`crates/qli/tests/cmd/version.toml`](../../../crates/qli/tests/cmd/version.toml), and the 3 plugin version pins to 0.3.0 in one commit; run `cargo test --workspace` before pushing.
 - [ ] Add `qli-lang-csharp`, `qli-lang-angular`, `qli-lsp`, and `qli-scip` to `TIERS` in `scripts/publish-workspace.sh`.
 - [ ] Tag `v0.3.0`; `release.yml` builds all 5 targets green (first cross-compile of the C#, Angular, and HTML grammars).
