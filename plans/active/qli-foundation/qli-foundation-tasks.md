@@ -1,7 +1,7 @@
 # Task Checklist: qli — Polyglot Code Analysis CLI + Extension Framework
 **Last Updated:** 2026-10-11 (v0.2.0 released end-to-end — all 8 crates on crates.io, GitHub release + Homebrew tap live, C-toolchain cross-compile verified across all 5 targets, both new plugin slash commands live-verified. **Phase 2 fully closed, 51/51.** A SIGINT audit-race fix shipped alongside. Open follow-up is machine-state only: `brew upgrade qli` to replace the stale local Homebrew 0.1.1 that shadows cargo's 0.2.0 on `PATH`. See 2026-10-11 SESSION PROGRESS in [context.md](qli-foundation-context.md). Prior: 2026-07-31 Phase 2 built 2A–2I; 2026-07-30 v0.1.2 released end-to-end — 1.5E/1.5F code shipped, plus a CI-audit `--locked` fix, advisory dep bumps, and an embedded-materialize race fix; see 2026-07-30 SESSION PROGRESS in [context.md](qli-foundation-context.md). Same day: **Phase 1.5 fully closed** — curl `self-update` live-verified in a sandbox, and the 1.5E/1.5F session verifies executed via the `claude` CLI (headless `-p` slash-command dispatch + `claude plugin marketplace add`/`install` from a clean state, restored afterward). All Phase 1.5 acceptance rows now checked.)
 
-Each phase ships a working artifact. Don't start phase N+1 until phase N's "verify" tasks pass.
+Each phase ships a working artifact. A phase or sub-phase starts when every item on its **Blocked by** line is checked; work with no shared blocker runs in parallel.
 
 ## Resolved structural decisions
 
@@ -125,7 +125,7 @@ Three structural forks (crate publishing, embedded extension defaults, SCIP prer
 - [x] `cargo audit` via `rustsec/audit-check@v2` — fails on **any** advisory (no severity-tier filter; the plan chose `cargo audit` over `cargo-deny`).
 - [x] Toolchain + cache via `actions-rust-lang/setup-rust-toolchain@v1` (honours `rust-toolchain.toml`; bundles `Swatinem/rust-cache@v2`).
 - [x] **Block PR merge on CI green.** Applied 2026-05-04 after repo flipped public in 1.5A. Required checks (9): `rustfmt`, `clippy (ubuntu-latest)`, `clippy (macos-14)`, `test (ubuntu-latest)`, `test (macos-14)`, `build (ubuntu-latest)`, `build (macos-14)`, `cargo-audit`, `plan` (release.yml's PR-time dist sanity check). Settings: `strict` (must be up-to-date with main), `enforce_admins: false` (owner keeps direct-push flow; rules apply only to non-admin contributors), no PR review requirement (solo author), no force-pushes, no deletion. Applied via `gh api repos/QLangstaff/qli/branches/main/protection --method PUT` (full JSON body in [context.md](qli-foundation-context.md) SESSION PROGRESS for 2026-05-04).
-- [ ] **Verify the gates fail when they should** — clean-tree green half is empirical (run [25282714217](https://github.com/QLangstaff/qli/actions/runs/25282714217)); deliberate red-build experiment deferred to user's first real PR.
+- [x] **Verify the gates fail when they should** — green on a clean tree: run [25282714217](https://github.com/QLangstaff/qli/actions/runs/25282714217). Red on real failures: run [25350341407](https://github.com/QLangstaff/qli/actions/runs/25350341407) failed both `test` jobs on a stale version snapshot; run [30561784700](https://github.com/QLangstaff/qli/actions/runs/30561784700) failed `cargo-audit` on an advisory. Merge-blocking applies to pull requests only and gets exercised by the first one.
 
 ### 1L: Tests
 
@@ -313,136 +313,156 @@ Per [context.md → Design Decisions → "Plugin install-distribution: qli repo 
 
 ## Phase 2.5: C# Adapter
 
-- [ ] Create `qli-lang-csharp`; depend on `tree-sitter-c-sharp`.
-- [ ] Implement `Language` for `.cs`.
-- [ ] Add C# fixtures with TODO/FIXME comments.
-- [ ] Verify: `qli analyze foo.cs` works with the same TODO/FIXME analyzer as Phase 2.
+**Blocked by:** nothing open (Phase 2 is closed).
+
+- [x] Create `qli-lang-csharp`; depend on `tree-sitter-c-sharp`.
+- [x] Implement `Language` for `.cs`.
+- [x] Add C# fixtures with TODO/FIXME comments.
+- [x] Verify: `qli analyze foo.cs` works with the same TODO/FIXME analyzer as Phase 2.
 
 ## Phase 2.6: Angular Template Adapter
 
-- [ ] Research current best `tree-sitter-angular` grammar (compare options; Angular template syntax has multiple parsers in the ecosystem).
-- [ ] Create `qli-lang-angular`; depends on the chosen grammar plus `qli-lang-typescript` for embedded expressions.
-- [ ] Implement `Language` registering `.html` (component templates) — careful: not all `.html` files are Angular templates. Either require an opt-in marker or detect via project config (`angular.json`).
-- [ ] Handle structural directives (`*ngIf`, `*ngFor`), bindings (`[prop]`, `(event)`, `[(ngModel)]`), interpolation (`{{ expr }}`).
-- [ ] Bridge embedded TS expressions into the TS adapter for analysis.
-- [ ] Add Angular fixtures with TODO/FIXME in templates.
-- [ ] Verify: `qli analyze foo.component.html` works; embedded expressions are parsed.
+**Blocked by:** nothing open (Phase 2 is closed). A change to the `Language` trait or `ParseTree` lands on `main` before Phase 3 or Phase 4 code builds on the trait.
+
+- [x] Research current best `tree-sitter-angular` grammar (compare options; Angular template syntax has multiple parsers in the ecosystem).
+- [x] Create `qli-lang-angular`; depends on the chosen grammar plus `qli-lang-typescript` for embedded expressions.
+- [x] Implement `Language` registering `.html` (component templates) — careful: not all `.html` files are Angular templates. Either require an opt-in marker or detect via project config (`angular.json`).
+- [x] Handle structural directives (`*ngIf`, `*ngFor`), bindings (`[prop]`, `(event)`, `[(ngModel)]`), interpolation (`{{ expr }}`).
+- [x] Bridge embedded TS expressions into the TS adapter for analysis.
+- [x] Add Angular fixtures with TODO/FIXME in templates.
+- [x] Verify: `qli analyze foo.component.html` works; embedded expressions are parsed.
 
 ## Phase 3: LSP Frontend
 
+**Blocked by:** nothing open (Phase 2 is closed). 3B is blocked by 3A; 3C is blocked by 3B.
+
 ### 3A: `qli-lsp` crate
 
-- [ ] Create `qli-lsp`; depend on `tower-lsp`, `tokio`, `qli-core`, `qli-analyzers`, language adapters.
-- [ ] Implement basic server lifecycle: `initialize`, `initialized`, `shutdown`, `exit`.
-- [ ] Implement document sync: `textDocument/didOpen`, `didChange`, `didSave`, `didClose`.
-- [ ] On `didChange`, run `TodoFixme` and `DefRefs` (from Phase 2I) over the new document content; publish `Diagnostic` (from TodoFixme) via `textDocument/publishDiagnostics`.
-- [ ] Implement `textDocument/definition` (go-to-def) using the `DefRefs` analyzer's symbol table — same-file references resolve to the local definition.
-- [ ] **LSP cache strategy** (two-tier):
+- [x] Move `language_registry()` ([`crates/qli/src/analyze.rs`](../../../crates/qli/src/analyze.rs)) and `AnalysisCache` ([`crates/qli/src/analysis_cache.rs`](../../../crates/qli/src/analysis_cache.rs)) out of the `qli` binary into a library crate that both `qli` and `qli-lsp` depend on.
+- [x] Create `qli-lsp`; depend on `tower-lsp`, `tokio`, `qli-core`, `qli-analyzers`, language adapters.
+- [x] Mark every site that changes in a move to `tower-lsp-server` with a `// tower-lsp-server swap:` comment naming the change: the `tower-lsp` line in `crates/qli-lsp/Cargo.toml`, each `#[tower_lsp::async_trait]` attribute, each `tower_lsp::` and `lsp_types::` import, and each `Url` use (`Uri` in the fork's types). `grep -rn 'tower-lsp-server swap:'` then lists the whole migration.
+- [x] Implement basic server lifecycle: `initialize`, `initialized`, `shutdown`, `exit`.
+- [x] Implement document sync: `textDocument/didOpen`, `didChange`, `didSave`, `didClose`.
+- [x] On `didChange`, run `TodoFixme` and `DefRefs` (from Phase 2I) over the new document content; publish `Diagnostic` (from TodoFixme) via `textDocument/publishDiagnostics`.
+- [x] Implement `textDocument/definition` (go-to-def) using the `DefRefs` analyzer's symbol table — same-file references resolve to the local definition.
+- [x] **LSP cache strategy** (two-tier):
   - **In-memory per-document LRU** keyed by `DocumentUri`. Value is the most recent `(content_hash, AnalysisResult)`. Bounded size (default 200 documents). On `didChange`, hash content; if hash matches in-memory entry, skip re-analysis. This handles the per-keystroke load.
   - **Persisted hash cache** (the same one from Phase 2F) sits behind it for cold-start recovery. Same content-hash keys.
-- [ ] Convert `qli-core` types to LSP types via `qli-outputs/lsp.rs` (`Position`, `Range`, `Diagnostic`, `Location`).
+- [x] Convert `qli-core` types to LSP types via `qli-outputs/lsp.rs` (`Position`, `Range`, `Diagnostic`, `Location`).
 
 ### 3B: `qli lsp` command
 
-- [ ] Add `qli lsp` subcommand: `--stdio` (default), `--tcp <port>`.
-- [ ] In `--stdio` mode, **all** logging goes to stderr or a file (never stdout — that's the LSP transport). In `--tcp` mode, stderr stays clean too (file logging only) to keep terminal usage sane.
-- [ ] Verify: starting the server with `qli lsp --stdio` produces valid LSP handshake; `tower-lsp`'s test harness completes initialize→didOpen→publishDiagnostics roundtrip.
-- [ ] **Plugin update**: edit [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) — add a brief note that qli now speaks LSP via `qli lsp --stdio` for editor integration (informational; no slash command since LSP is editor-bound and Claude wouldn't invoke it directly). Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) "What's in this plugin" section to mention LSP availability.
-    - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
+- [x] Add `qli lsp` subcommand: `--stdio` (default), `--tcp <port>`.
+- [x] In `--stdio` mode, **all** logging goes to stderr or a file (never stdout — that's the LSP transport). In `--tcp` mode, stderr stays clean too (file logging only) to keep terminal usage sane.
+- [x] Verify: starting the server with `qli lsp --stdio` produces valid LSP handshake; `tower-lsp`'s test harness completes initialize→didOpen→publishDiagnostics roundtrip.
+- [x] **Plugin update**: edit [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) — add a brief note that qli now speaks LSP via `qli lsp --stdio` for editor integration (informational; no slash command since LSP is editor-bound and Claude wouldn't invoke it directly). Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) "What's in this plugin" section to mention LSP availability.
+    - The plugin edits merge with the 0.3.0 release commit — see [Release 0.3.0](#release-030).
     - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, ask Claude an LSP-relevant question (e.g., "how would I get qli diagnostics in VS Code?") and confirm the response references `qli lsp --stdio` per the new SKILL.md guidance. Re-verify `/qli:ext-list` and `/qli:analyze <fixture>` still dispatch (catches frontmatter/YAML breakage from the SKILL.md edit).
 
 ### 3C: VS Code extension + Helix config (real deliverables)
 
-- [ ] Create `editors/vscode/` containing a minimal VS Code extension package: `package.json` declaring activation events for `.py`/`.ts`/`.tsx` files and `extension.js` that spawns `qli lsp --stdio` and wires it via `vscode-languageclient`. Build is `npm run package` → `qli-vscode-x.y.z.vsix`.
-- [ ] Decide v1 distribution path for the VS Code extension: install from `.vsix` (simplest) or publish to the Marketplace (more setup, requires publisher account). v1 = `.vsix`; Marketplace publish is a backlog item.
-- [ ] Create `editors/helix/languages.toml` snippet documenting how to register `qli lsp` as a language server for Python/TS in Helix.
-- [ ] Commit a `editors/README.md` with install instructions for both editors.
-- [ ] Manual smoke test: install the VS Code `.vsix` on a clean machine, open a Python file with TODO/FIXME, verify diagnostics appear in the Problems panel; trigger go-to-def on a same-file function reference, verify it jumps.
+- [x] Create `editors/vscode/` containing a minimal VS Code extension package: `package.json` declaring activation events for `.py`/`.ts`/`.tsx` files and `extension.js` that spawns `qli lsp --stdio` and wires it via `vscode-languageclient`. Build is `npm run package` → `qli-vscode-x.y.z.vsix`.
+- [x] Decide v1 distribution path for the VS Code extension: install from `.vsix` (simplest) or publish to the Marketplace (more setup, requires publisher account). v1 = `.vsix`; Marketplace publish is a backlog item.
+- [x] Create `editors/helix/languages.toml` snippet documenting how to register `qli lsp` as a language server for Python/TS in Helix.
+- [x] Commit a `editors/README.md` with install instructions for both editors.
+- [x] Manual smoke test: install the VS Code `.vsix` on a clean machine, open a Python file with TODO/FIXME, verify diagnostics appear in the Problems panel; trigger go-to-def on a same-file function reference, verify it jumps. Done 2026-10-12 in VS Code 1.139.1 with an isolated profile (fresh `--user-data-dir` and `--extensions-dir`, only the `.vsix` installed): 4 qli diagnostics each for Python, TypeScript, C#, and an Angular template; a fifth after an unsaved edit; go-to-definition on `foo` jumps to its definition in Python and TypeScript; a `.html` file outside an `angular.json` workspace gets none.
 
 ### Phase 3 acceptance
 
-- [ ] LSP server starts, accepts edits, publishes diagnostics for known-bad fixtures.
-- [ ] VS Code extension `.vsix` builds and works on a clean machine; Helix config works for at least Python.
-- [ ] Go-to-definition works for same-file references in both Python and TypeScript fixtures.
-- [ ] Per-keystroke editing on a 1k-line file feels responsive (subjective; document any latency hot spots in `editors/README.md`).
+- [x] LSP server starts, accepts edits, publishes diagnostics for known-bad fixtures.
+- [x] VS Code extension `.vsix` builds and works on a clean machine; Helix config works for at least Python. Verified 2026-10-12: VS Code as in 3C; Helix 25.07.1 with only [`editors/helix/languages.toml`](../../../editors/helix/languages.toml) as config received the 4 Python diagnostics and resolved go-to-definition on `foo`.
+- [x] Go-to-definition works for same-file references in both Python and TypeScript fixtures.
+- [x] Per-keystroke editing on a 1k-line file feels responsive (subjective; document any latency hot spots in `editors/README.md`). Measured: 4.9 ms per `didChange` at 1k lines, 17.6 ms at 5k lines ([`editors/README.md`](../../../editors/README.md)); open until tried in an editor. Closed on the measurement.
 
 ## Phase 4: SCIP Emission
 
-**Prerequisite:** Phase 2I (definition + reference extractor) shipped. Phase 4 emits the symbols/references that 2I produces.
+**Blocked by:** nothing open (Phase 2I is closed). Phase 4 emits the symbols/references that 2I produces. 4B is blocked by 4A; 4C is blocked by 4B; 4D is blocked by 4C.
 
 ### 4A: SCIP symbol scheme design
 
-- [ ] Define a per-language SCIP symbol scheme. Symbols follow SCIP's `<scheme> <package-manager> <package-name> <package-version> <descriptor>` format. Decide:
+- [x] Define a per-language SCIP symbol scheme. Symbols follow SCIP's `<scheme> <package-manager> <package-name> <package-version> <descriptor>` format. Decide:
   - Scheme prefix (e.g., `scip-qli`).
   - How to map Python module paths and TypeScript file/module paths into SCIP descriptors.
   - How to handle local-only symbols (no public package).
-- [ ] Document the scheme in `crates/qli-scip/SCHEME.md`.
+- [x] Document the scheme in `crates/qli-scip/SCHEME.md`.
 
 ### 4B: `qli-scip` crate
 
-- [ ] Add `qli-scip`; depend on Sourcegraph's `scip` crate, `qli-core`, language adapters.
-- [ ] Implement `qli-outputs/scip.rs`: convert `qli-core` Symbols and References (from Phase 2I) into SCIP `Document` and `Occurrence` protobufs using the scheme from 4A.
+- [x] Add `qli-scip`; depend on Sourcegraph's `scip` crate, `qli-core`, language adapters.
+- [x] Implement `qli-outputs/scip.rs`: convert `qli-core` Symbols and References (from Phase 2I) into SCIP `Document` and `Occurrence` protobufs using the scheme from 4A.
 
 ### 4C: `qli index` command
 
-- [ ] Add `qli index` subcommand: walks a project root, runs the `DefRefs` analyzer over every supported file, emits a single `index.scip` file.
-- [ ] Args: `path: PathBuf` (positional, default `.`), `--output <path>` (default `index.scip`), `--lang <ids>` (optional filter), `-v`/`-q`.
-- [ ] Use the `ignore` crate (same one used by `ripgrep`) for `.gitignore`-respecting walks.
-- [ ] Reuse the analysis cache from Phase 2F so re-indexing is incremental.
-- [ ] **Plugin update**: add `claude-code-plugin/commands/index.md` (slash command wrapping `qli index $ARGUMENTS` via Bash) and update [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) noting `qli index` is now real. Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) command list.
-    - **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions).
+- [x] Add `qli index` subcommand: walks a project root, runs the `DefRefs` analyzer over every supported file, emits a single `index.scip` file.
+- [x] Args: `path: PathBuf` (positional, default `.`), `--output <path>` (default `index.scip`), `--lang <ids>` (optional filter), `-v`/`-q`.
+- [x] Use the `ignore` crate (same one used by `ripgrep`) for `.gitignore`-respecting walks.
+- [x] Reuse the analysis cache from Phase 2F so re-indexing is incremental.
+- [x] Cross-file resolution: after the per-file `DefRefs` run, resolve every `Reference` with `resolved: None` against the definitions of all indexed files. A reference that matches no definition stays unresolved and is still recorded.
+- [x] **Plugin update**: add `claude-code-plugin/commands/index.md` (slash command wrapping `qli index $ARGUMENTS` via Bash) and update [`claude-code-plugin/skills/qli/SKILL.md`](../../../claude-code-plugin/skills/qli/SKILL.md) noting `qli index` is now real. Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) command list.
+    - The plugin edits merge with the 0.3.0 release commit — see [Release 0.3.0](#release-030).
     - **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, dispatch `/qli:index <fixture-dir>` against a small multi-file Python/TS fixture — confirm Claude shells `qli index` via Bash, the resulting `index.scip` lands at the expected path, and Claude prints stdout (file path, byte count) verbatim. Re-verify `/qli:analyze` and `/qli:ext-list` (regression catch).
 
 ### 4D: Validation
 
-- [ ] Install `scip` CLI in CI (binary release from Sourcegraph).
-- [ ] Add an integration test: emit `index.scip` over a multi-file Python + TypeScript fixture, run `scip print index.scip`, assert expected symbols and references are present.
-- [ ] Add a roundtrip test: write a fixture where `foo()` is defined in one file and called in another; verify the SCIP index records the reference resolving to the definition's symbol.
+- [ ] Install `scip` CLI in CI (binary release from Sourcegraph). The step is in [`ci.yml`](../../../.github/workflows/ci.yml) (`scip` v0.10.0, pinned checksums); open until it runs green on a runner.
+- [x] Add an integration test: emit `index.scip` over a multi-file Python + TypeScript fixture, run `scip print index.scip`, assert expected symbols and references are present.
+- [x] Add a roundtrip test: write a fixture where `foo()` is defined in one file and called in another; verify the SCIP index records the reference resolving to the definition's symbol.
 - [ ] (Optional) Document running a local Sourcegraph instance against the index for visual sanity check.
 
 ### Phase 4 acceptance
 
-- [ ] `qli index path/to/project` produces a valid `index.scip` recognized by `scip print`.
-- [ ] Symbols (function/class/variable definitions) and references (call sites resolved to defs) from Phase 2I's `DefRefs` analyzer appear correctly in the index for both Python and TypeScript fixtures.
-- [ ] Cross-file references resolve where the analyzer can resolve them; unresolved references are still recorded.
+- [x] `qli index path/to/project` produces a valid `index.scip` recognized by `scip print`.
+- [x] Symbols (function/class/variable definitions) and references (call sites resolved to defs) from Phase 2I's `DefRefs` analyzer appear correctly in the index for both Python and TypeScript fixtures.
+- [x] Cross-file references resolve where the analyzer can resolve them; unresolved references are still recorded.
 
 ## Phase 5: MCP server + tool schemas
 
-**Prerequisite:** Phase 3 complete (adds `tokio` to the workspace via `tower-lsp` — `rmcp` reuses it) AND Phase 4 complete (which itself requires Phase 2I — the def+ref extractor that populates `qli analyze` output with symbols/references and gives Phase 4's SCIP emission something to record). By the time Phase 5 starts, `qli-core` is real (2A), `qli analyze` ships with both TODO/FIXME and def+ref output (2G + 2H + 2I), `qli index` produces real SCIP files (4C + 4D), `tokio` is in the workspace (3A), and the `qli` binary's user-facing surface is stable enough to design MCP tool schemas against. Originally scoped under 1.5D.2-1.5D.5; moved here so schemas are designed against shipped engines rather than imagined output. Primary-source MCP references (spec landing, SDK choice notes, real-plugin examples on this machine) live in [context.md → External Documentation → Model Context Protocol — MCP](qli-foundation-context.md#external-documentation).
+**Blocked by:** 3A (adds `tokio` to the workspace — `rmcp` reuses it) and 4C (`qli index`, the engine behind the `qli_index` tool). 3C and 4D do not block Phase 5. Originally scoped under 1.5D.2-1.5D.5; moved here so schemas are designed against shipped engines rather than imagined output. Primary-source MCP references (spec landing, SDK choice notes, real-plugin examples on this machine) live in [context.md → External Documentation → Model Context Protocol — MCP](qli-foundation-context.md#external-documentation).
 
 ### 5A: MCP server skeleton
 
-- [ ] Add `qli mcp` subcommand. MCP is JSON-RPC 2.0 over stdio (separate protocol from LSP); the `qli` binary speaks both via different subcommands.
-- [ ] Add `rmcp` as a workspace dep, pinning the current 1.x release at implementation time (floor is 1.6 per the decision in [context.md → "Rust MCP SDK choice"](qli-foundation-context.md#architectural-decisions); use the latest 1.x available when this phase starts). `tokio` is in the workspace from Phase 3A (added via `tower-lsp`); `rmcp` reuses the same runtime. Use `transport::stdio()` for the MCP transport. Do **not** roll your own JSON-RPC.
-- [ ] Skim `rmcp`'s README/CHANGELOG against the macro signatures used in 5B (`#[tool_router]`, `#[tool]`, derive `schemars::JsonSchema`) — if the pinned 1.x has shifted from 1.6's shape, update 5B's task body before starting 5B.
-- [ ] Implement MCP server lifecycle via `rmcp`'s `ServiceExt::serve(stdio())` — `initialize`, `initialized`, `shutdown`, `exit` are handled by the SDK. Long-running stdio process; logging goes to stderr or a file (never stdout — that's the MCP transport).
+- [x] Add `qli mcp` subcommand. MCP is JSON-RPC 2.0 over stdio (separate protocol from LSP); the `qli` binary speaks both via different subcommands.
+- [x] Add `rmcp` as a workspace dep, pinned to 3.5.1, the current release (rust-version 1.88); the server lives in [`crates/qli/src/mcp.rs`](../../../crates/qli/src/mcp.rs). `tokio` is in the workspace from Phase 3A (added via `tower-lsp`); `rmcp` reuses the same runtime. Use `transport::stdio()` for the MCP transport. Do **not** roll your own JSON-RPC.
+- [x] Skim `rmcp`'s README/CHANGELOG against the macro signatures used in 5B (`#[tool_router]`, `#[tool]`, derive `schemars::JsonSchema`) — if the pinned 1.x has shifted from 1.6's shape, update 5B's task body before starting 5B.
+- [x] Implement MCP server lifecycle via `rmcp`'s `ServiceExt::serve(stdio())` — `initialize`, `initialized`, `shutdown`, `exit` are handled by the SDK. Long-running stdio process; logging goes to stderr or a file (never stdout — that's the MCP transport).
 
 ### 5B: MCP tool schemas
 
-- [ ] Declare `qli_analyze` MCP tool via `#[tool_router(server_handler)]` + `#[tool(description = "…")]` on the server impl, with a `#[derive(serde::Deserialize, schemars::JsonSchema)]` params struct `{ paths: Vec<String>, lang: Option<String>, analyzer: Option<String> }`. (Macro signature reflects the `rmcp` version pinned in 5A; 5A's task includes a re-skim of the SDK's README/CHANGELOG before this phase begins.) Output schema matches `qli analyze --format jsonl` records.
-- [ ] Declare `qli_index` MCP tool with params struct `{ path: String, output: Option<String>, lang: Option<Vec<String>> }` and output schema describing the resulting SCIP file (path, byte count, symbol/reference counts).
-- [ ] Declare `qli_ext_list` MCP tool exposing the discovered extensions (Claude can introspect what's available).
-- [ ] Tool implementations call the same `qli-core` engine the CLI uses — no shelling out to `qli` from inside `qli mcp`.
+- [x] Declare `qli_analyze` MCP tool via `#[tool_router(server_handler)]` + `#[tool(description = "…")]` on the server impl, with a `#[derive(serde::Deserialize, schemars::JsonSchema)]` params struct `{ paths: Vec<String>, lang: Option<String>, analyzer: Option<String> }`. (Macro signature reflects the `rmcp` version pinned in 5A; 5A's task includes a re-skim of the SDK's README/CHANGELOG before this phase begins.) Output schema matches `qli analyze --format jsonl` records.
+- [x] Declare `qli_index` MCP tool with params struct `{ path: String, output: Option<String>, lang: Option<Vec<String>> }` and output schema describing the resulting SCIP file (path, byte count, symbol/reference counts).
+- [x] Declare `qli_ext_list` MCP tool exposing the discovered extensions (Claude can introspect what's available).
+- [x] Tool implementations call the same `qli-core` engine the CLI uses — no shelling out to `qli` from inside `qli mcp`.
 
 ### 5C: MCP integration test
 
-- [ ] Add an integration test that spawns `qli mcp`, sends `initialize`, `tools/list`, then `tools/call` for `qli_analyze` over a fixture, asserts the response contains expected diagnostics.
-- [ ] Use `rmcp`'s in-process client (`ServiceExt` on the client side) if available in the version pulled in by 5A; otherwise hand-craft JSON-RPC frames against the child process's stdio.
+- [x] Add an integration test that spawns `qli mcp`, sends `initialize`, `tools/list`, then `tools/call` for `qli_analyze` over a fixture, asserts the response contains expected diagnostics.
+- [x] Use `rmcp`'s in-process client (`ServiceExt` on the client side) if available in the version pulled in by 5A; otherwise hand-craft JSON-RPC frames against the child process's stdio.
 
 ### 5D: `.mcp.json` and install docs
 
-- [ ] Create `claude-code-plugin/.mcp.json` (filename `.mcp.json` with leading dot at the plugin root — locked in [context.md → External Documentation → Claude Code plugins](qli-foundation-context.md#external-documentation)) declaring the MCP server: `{ "mcpServers": { "qli": { "command": "qli", "args": ["mcp"] } } }`. No `${CLAUDE_PLUGIN_ROOT}` substitution needed — qli is expected on `PATH` (same model as the slash commands).
-- [ ] Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) MCP section: tool schemas, what each tool does, when Claude will pick MCP over the slash-command path.
-- [ ] **Bump plugin version pins** (3 files) per [context.md → "Plugin version tracks the qli binary version"](qli-foundation-context.md#architectural-decisions). Phase 5 ships a new user-facing surface (`qli mcp` subcommand + MCP tool path), so the rule applies.
-- [ ] **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, confirm the qli MCP server registers on session start (visible in Claude Code's MCP listing) with `qli_analyze`, `qli_index`, `qli_ext_list` exposed. Tool-call correctness (`tools/list` + `tools/call` round-trip shape) is covered by 5C's integration test against `qli mcp` directly — do not gate the verify on Claude's routing choice. Re-verify `/qli:analyze <fixture.py>` and `/qli:ext-list` still dispatch via the slash-command path (catches regressions from the version bump or `.mcp.json` edit).
+- [x] Create `claude-code-plugin/.mcp.json` (filename `.mcp.json` with leading dot at the plugin root — locked in [context.md → External Documentation → Claude Code plugins](qli-foundation-context.md#external-documentation)) declaring the MCP server: `{ "mcpServers": { "qli": { "command": "qli", "args": ["mcp"] } } }`. No `${CLAUDE_PLUGIN_ROOT}` substitution needed — qli is expected on `PATH` (same model as the slash commands).
+- [x] Update [`claude-code-plugin/README.md`](../../../claude-code-plugin/README.md) MCP section: tool schemas, what each tool does, when Claude will pick MCP over the slash-command path.
+- [x] The `.mcp.json` and README edits merge with the 0.3.0 release commit — see [Release 0.3.0](#release-030).
+- [x] **Verify**: in a fresh `claude --plugin-dir ./claude-code-plugin` session, confirm the qli MCP server registers on session start (visible in Claude Code's MCP listing) with `qli_analyze`, `qli_index`, `qli_ext_list` exposed. Tool-call correctness (`tools/list` + `tools/call` round-trip shape) is covered by 5C's integration test against `qli mcp` directly — do not gate the verify on Claude's routing choice. Re-verify `/qli:analyze <fixture.py>` and `/qli:ext-list` still dispatch via the slash-command path (catches regressions from the version bump or `.mcp.json` edit).
 
 ### Phase 5 acceptance
 
-- [ ] `qli mcp` starts, completes the JSON-RPC handshake, returns 3 tools from `tools/list` (`qli_analyze`, `qli_index`, `qli_ext_list`).
-- [ ] `tools/call` for all three returns correctly-shaped results matching their declared schemas.
+- [x] `qli mcp` starts, completes the JSON-RPC handshake, returns 3 tools from `tools/list` (`qli_analyze`, `qli_index`, `qli_ext_list`).
+- [x] `tools/call` for all three returns correctly-shaped results matching their declared schemas.
 - [ ] Integration test green in CI.
-- [ ] `qli mcp` tool handlers call `qli-core` directly (verify by inspection: no `std::process::Command` invoking `qli` from inside the MCP handlers). Combined with the existing slash-command path (which shells `qli` and lands in the same `qli-core` engine), both surfaces resolve to one engine.
+- [x] `qli mcp` tool handlers call `qli-core` directly (verify by inspection: no `std::process::Command` invoking `qli` from inside the MCP handlers). Combined with the existing slash-command path (which shells `qli` and lands in the same `qli-core` engine), both surfaces resolve to one engine.
 - [ ] MCP-tool install path works on a clean machine: install the plugin via the 1.5F marketplace path (`/plugin marketplace add QLangstaff/qli` + `/plugin install qli@qli-plugins`), confirm the qli MCP server registers on session start and `qli_analyze`/`qli_index`/`qli_ext_list` appear in Claude Code's MCP listing.
+
+## Release 0.3.0
+
+**Blocked by:** Phase 2.5, 2.6, 3, 4, and 5 acceptance. One release covers all five phases; no version bump happens while a phase is in flight.
+
+- [ ] Merge the plugin edits from 3B, 4C, and 5D.
+- [ ] Bump the workspace version, every crate's path-dependency version, [`crates/qli/tests/cmd/version.toml`](../../../crates/qli/tests/cmd/version.toml), and the 3 plugin version pins to 0.3.0 in one commit; run `cargo test --workspace` before pushing.
+- [ ] Add `qli-lang-csharp`, `qli-lang-angular`, `qli-lsp`, and `qli-scip` to `TIERS` in `scripts/publish-workspace.sh`.
+- [ ] Tag `v0.3.0`; `release.yml` builds all 5 targets green (first cross-compile of the C#, Angular, and HTML grammars).
+- [ ] Publish every crate to crates.io via `scripts/publish-workspace.sh`.
+- [ ] Verify: `cargo install qli --version 0.3.0 --locked`, `brew upgrade qli`, and the curl installer each report `qli 0.3.0`.
 
 ## Cross-cutting / standing tasks
 

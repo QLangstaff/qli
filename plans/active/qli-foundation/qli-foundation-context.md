@@ -534,5 +534,5 @@ Original alternatives considered: env mutation (chosen), cargo-style pre-scan + 
 - **Solo author.** Plan must be self-contained and resumable across sessions; tasks must be small enough to pick up cold.
 - **Unix-style discipline.** stdout=data / stderr=chatter, exit codes 0/1/2/130, GNU long flags, kebab-case command names.
 - **No backwards-compat carrying yet.** Pre-1.0; manifest schema, output JSON, and CLI flags can change with minor version bumps. After 1.0 these become API surface.
-- **Rust 2021 edition.** Toolchain pin (1.95.0) and MSRV (1.85) both support edition 2024, but the workspace stays on 2021 for now. Edition 2024 makes `std::env::set_var` / `remove_var` `unsafe` (race-y in multi-threaded programs); migrating means auditing `apply_color_choice` and any future env mutation. Defer until there's a reason.
+- **Rust 2021 edition.** Toolchain pin (1.95.0) and MSRV (1.88) both support edition 2024, but the workspace stays on 2021 for now. Edition 2024 makes `std::env::set_var` / `remove_var` `unsafe` (race-y in multi-threaded programs); migrating means auditing `apply_color_choice` and any future env mutation. Defer until there's a reason.
 - **License:** repo already has a `LICENSE` file — preserve it; per-crate `Cargo.toml` declares matching `license = "..."`.
