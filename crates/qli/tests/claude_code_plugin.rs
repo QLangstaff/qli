@@ -3,7 +3,8 @@
 //!
 //! Two layers:
 //!   - **Static** (no sandbox): plugin.json validity, version pinning,
-//!     frontmatter shape on every command file and the skill.
+//!     frontmatter shape on every command file and the skill, and the
+//!     `.mcp.json` server registration.
 //!   - **Behavioral** (sandboxed): the output-stream / exit-code claims
 //!     SKILL.md makes about qli actually hold when invoking the real
 //!     binary.
@@ -119,6 +120,39 @@ fn every_command_file_has_valid_frontmatter() {
 }
 
 #[test]
+fn mcp_json_registers_the_qli_mcp_server() {
+    let config_path = plugin_dir().join(".mcp.json");
+    let raw = fs::read_to_string(&config_path)
+        .unwrap_or_else(|e| panic!("read {}: {e}", config_path.display()));
+    let value: serde_json::Value =
+        serde_json::from_str(&raw).unwrap_or_else(|e| panic!(".mcp.json parse: {e}"));
+    let servers = value["mcpServers"]
+        .as_object()
+        .expect(".mcp.json has an `mcpServers` object");
+    assert_eq!(
+        servers.keys().collect::<Vec<_>>(),
+        ["qli"],
+        ".mcp.json must register exactly the `qli` server"
+    );
+    // The plugin runs whatever `qli` is on PATH (see README "Prerequisites"),
+    // as the slash commands do — and `mcp` must be a subcommand it has.
+    assert_eq!(servers["qli"]["command"], "qli");
+    assert_eq!(servers["qli"]["args"], serde_json::json!(["mcp"]));
+}
+
+#[test]
+fn documented_mcp_tools_are_the_ones_the_plugin_describes() {
+    // README and SKILL.md both name the three tools `qli mcp` serves (the
+    // served set itself is pinned in `tests/mcp.rs`).
+    for relative in ["README.md", "skills/qli/SKILL.md"] {
+        let body = fs::read_to_string(plugin_dir().join(relative)).unwrap();
+        for tool in ["qli_analyze", "qli_index", "qli_ext_list"] {
+            assert!(body.contains(tool), "{relative} does not mention `{tool}`");
+        }
+    }
+}
+
+#[test]
 fn skill_file_has_valid_frontmatter() {
     let skill_path = plugin_dir().join("skills/qli/SKILL.md");
     let fm = frontmatter_of(&skill_path);
@@ -143,7 +177,17 @@ fn documented_subcommands_appear_in_qli_help() {
         .output()
         .expect("run qli --help");
     let root_help_text = String::from_utf8(root_help.stdout).unwrap();
-    for cmd in ["ext", "completions", "self-update", "dev", "prod", "org"] {
+    for cmd in [
+        "analyze",
+        "index",
+        "ext",
+        "completions",
+        "mcp",
+        "self-update",
+        "dev",
+        "prod",
+        "org",
+    ] {
         assert!(
             root_help_text.contains(cmd),
             "`qli --help` missing documented subcommand `{cmd}`:\n{root_help_text}"

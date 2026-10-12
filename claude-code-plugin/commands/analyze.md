@@ -6,7 +6,7 @@ allowed-tools: [Bash]
 
 Run `qli analyze $ARGUMENTS` via the Bash tool. Print stdout verbatim. Do not interpret, summarize, or reformat the output.
 
-`qli analyze` parses Python and TypeScript/TSX files and runs an analyzer over them:
+`qli analyze` parses Python, TypeScript/TSX, C#, and Angular template files and runs an analyzer over them:
 - `--analyzer todofixme` (default) — flags `TODO`/`FIXME`/`XXX`/`HACK` markers found in comments.
 - `--analyzer defrefs` — extracts function/class/variable definitions and call-site references (same-file lexical resolution).
 
