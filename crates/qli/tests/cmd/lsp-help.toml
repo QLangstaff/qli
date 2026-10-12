@@ -1,0 +1,23 @@
+bin.name = "qli"
+args = "lsp --help"
+status.code = 0
+stdout = """
+Run the language server (LSP) for editor integration
+
+Usage: qli lsp [OPTIONS]
+
+Options:
+      --stdio          Speak LSP over stdin/stdout (the default). Logs go to stderr
+  -v, --verbose...     Increase logging verbosity. -v info, -vv debug, -vvv trace. `RUST_LOG=<level>` overrides; `RUST_LOG=<target>=<level>` refines
+  -q, --quiet          Decrease logging (suppress info; errors still print)
+      --tcp <PORT>     Listen on 127.0.0.1:<PORT> and serve one client. Logs go to `$XDG_STATE_HOME/qli/lsp.log`; stderr stays silent
+      --color <COLOR>  When to use colored output [default: auto] [possible values: auto, always, never]
+  -y, --yes            Assume yes for any guard prompt. Required for non-interactive runs of extensions whose group manifest sets `confirm = true`
+  -h, --help           Print help
+
+EXAMPLES:
+    qli lsp                  Serve LSP over stdin/stdout (what editors spawn).
+    qli lsp --stdio -vv      Same, with debug logging on stderr.
+    qli lsp --tcp 9257       Listen on 127.0.0.1:9257 for one client.
+"""
+stderr = ""

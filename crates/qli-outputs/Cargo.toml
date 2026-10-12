@@ -12,6 +12,9 @@ categories = ["development-tools"]
 [dependencies]
 qli-core = { path = "../qli-core", version = "0.2.0" }
 anstyle = "1"
+# tower-lsp-server swap: drop `lsp-types`; the fork re-exports its `ls-types`-based types (`tower_lsp_server::ls_types`).
+# Must stay the version `tower-lsp` 0.20.0 re-exports so the lockfile holds exactly one `lsp-types`.
+lsp-types = "0.94"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

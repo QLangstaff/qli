@@ -1,0 +1,6 @@
+# Installed dependencies and build output — never committed.
+node_modules/
+*.vsix
+
+# Copied in from the repo root by `npm run package` so the .vsix carries it.
+/LICENSE

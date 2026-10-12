@@ -19,9 +19,12 @@ pub enum SymbolKind {
 /// A definition: a named thing declared at a location in a file.
 ///
 /// `id` is a loose precursor to a SCIP symbol string of the form
-/// `<scheme>:<package>:<file>:<symbol-path>`. Phase 4 formalizes the scheme;
-/// for now it only needs to be stable and unique within a run so references
-/// can point at it.
+/// `<scheme>:<package>:<file>:<symbol-path>`. It only needs to be unique
+/// within one [`AnalysisResult`](crate::AnalysisResult), so that file's
+/// references can point at it; it is not unique across files (a cached result
+/// keeps the path it was first analyzed under). The formal SCIP symbol is
+/// derived from `name` and `kind` by `qli-scip` (see its `SCHEME.md`), never
+/// parsed out of `id`.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Symbol {
     pub id: String,
@@ -51,9 +54,11 @@ impl Symbol {
 /// A usage: a name referenced at a location, optionally resolved to a
 /// [`Symbol`]'s `id`.
 ///
-/// Phase 2 does lexical, same-file resolution only. A reference whose target
+/// Analyzers do lexical, same-file resolution only. A reference whose target
 /// isn't a same-file definition is recorded with `resolved: None` — being
-/// unresolved is a first-class, reported state, not an error.
+/// unresolved is a first-class, reported state, not an error. Linking it to a
+/// definition in another file is the project-wide [`resolve`](crate::resolve)
+/// pass, which reads these values and never rewrites them.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Reference {
     pub name: String,

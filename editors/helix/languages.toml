@@ -1,0 +1,39 @@
+# Helix: register `qli lsp` as a language server for Python, TypeScript, C#,
+# and Angular templates (`.html` inside an `angular.json` workspace).
+#
+# Merge this into `~/.config/helix/languages.toml` (or a project-local
+# `.helix/languages.toml`). `qli` must be on PATH.
+#
+# IMPORTANT: a `language-servers` list REPLACES Helix's default list for that
+# language — it does not append. The entries below enable only qli. To keep
+# the servers you already use, list them first and put "qli" last, e.g.
+#
+#     language-servers = ["pylsp", "qli"]
+#
+# `hx --health python` (or `typescript`, `tsx`) prints the servers currently
+# configured for a language. Order matters: Helix sends go-to-definition to
+# the first listed server that supports it, and merges diagnostics from all.
+
+[language-server.qli]
+command = "qli"
+args = ["lsp", "--stdio"]
+
+[[language]]
+name = "python"
+language-servers = ["qli"]
+
+[[language]]
+name = "typescript"
+language-servers = ["qli"]
+
+[[language]]
+name = "tsx"
+language-servers = ["qli"]
+
+[[language]]
+name = "c-sharp"
+language-servers = ["qli"]
+
+[[language]]
+name = "html"
+language-servers = ["qli"]

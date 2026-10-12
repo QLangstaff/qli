@@ -43,11 +43,11 @@ pub enum Command {
         paths: Vec<PathBuf>,
 
         /// Language to parse as, or `auto` to detect from the file extension.
-        #[arg(long, default_value = "auto")]
+        #[arg(long, default_value = crate::analyze::DEFAULT_LANG)]
         lang: String,
 
         /// Which analyzer to run.
-        #[arg(long, default_value = "todofixme")]
+        #[arg(long, default_value = crate::analyze::DEFAULT_ANALYZER)]
         analyzer: String,
 
         /// Output format. `auto` picks human on a TTY, jsonl when piped.
@@ -64,11 +64,43 @@ pub enum Command {
         /// Target shell.
         shell: clap_complete::Shell,
     },
+    /// Index a project into a SCIP index (definitions and references).
+    #[command(after_help = INDEX_AFTER_HELP)]
+    Index {
+        /// Project root to index. Walked recursively (respecting
+        /// `.gitignore`); unsupported files are skipped.
+        #[arg(value_name = "PATH", default_value = ".")]
+        path: PathBuf,
+
+        /// Where to write the index.
+        #[arg(long, value_name = "FILE", default_value = crate::index::DEFAULT_OUTPUT)]
+        output: PathBuf,
+
+        /// Only index these languages (comma-separated ids). Default: every
+        /// supported language.
+        #[arg(long, value_name = "IDS", value_delimiter = ',')]
+        lang: Vec<String>,
+    },
     /// Manage extensions.
     Ext {
         #[command(subcommand)]
         action: ExtAction,
     },
+    /// Run the language server (LSP) for editor integration.
+    #[command(after_help = LSP_AFTER_HELP)]
+    Lsp {
+        /// Speak LSP over stdin/stdout (the default). Logs go to stderr.
+        #[arg(long, conflicts_with = "tcp")]
+        stdio: bool,
+
+        /// Listen on 127.0.0.1:<PORT> and serve one client. Logs go to
+        /// `$XDG_STATE_HOME/qli/lsp.log`; stderr stays silent.
+        #[arg(long, value_name = "PORT")]
+        tcp: Option<u16>,
+    },
+    /// Run the Model Context Protocol (MCP) server for AI assistants.
+    #[command(after_help = MCP_AFTER_HELP)]
+    Mcp,
     /// Update qli to the latest release (curl-installed) or print the upgrade command for your install method.
     SelfUpdate {
         /// Emit machine-readable JSON instead of the human message.
@@ -146,6 +178,29 @@ EXAMPLES:
     qli analyze foo.py bar.ts            Analyze specific files.
     qli analyze --analyzer defrefs src/  Extract definitions and references.
     qli analyze foo.py | jq .            Machine-readable jsonl (auto when piped).
+";
+
+const INDEX_AFTER_HELP: &str = "\
+EXAMPLES:
+    qli index                            Index the current directory into ./index.scip.
+    qli index src/ --output out.scip     Index a directory, choosing the output file.
+    qli index --lang python,typescript   Index only the named languages.
+    scip print --json index.scip         Inspect the result with the SCIP CLI.
+";
+
+const LSP_AFTER_HELP: &str = "\
+EXAMPLES:
+    qli lsp                  Serve LSP over stdin/stdout (what editors spawn).
+    qli lsp --stdio -vv      Same, with debug logging on stderr.
+    qli lsp --tcp 9257       Listen on 127.0.0.1:9257 for one client.
+";
+
+const MCP_AFTER_HELP: &str = "\
+EXAMPLES:
+    qli mcp                  Serve MCP over stdin/stdout (what MCP clients spawn).
+    qli mcp -vv              Same, with debug logging on stderr.
+    claude mcp add qli -- qli mcp
+                             Register the server with Claude Code.
 ";
 
 const COMPLETIONS_AFTER_HELP: &str = "\

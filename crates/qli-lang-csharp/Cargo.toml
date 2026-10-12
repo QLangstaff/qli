@@ -1,0 +1,21 @@
+[package]
+name = "qli-lang-csharp"
+description = "C# language adapter (tree-sitter) for the qli polyglot CLI."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["qli", "csharp", "tree-sitter", "language", "adapter"]
+categories = ["development-tools", "parser-implementations"]
+
+[dependencies]
+qli-lang = { path = "../qli-lang", version = "0.2.0" }
+tree-sitter = "0.25"
+tree-sitter-c-sharp = "0.23"
+
+[dev-dependencies]
+qli-core = { path = "../qli-core", version = "0.2.0" }
+
+[lints]
+workspace = true

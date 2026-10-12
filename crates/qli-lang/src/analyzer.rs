@@ -46,7 +46,10 @@ impl<'a> AnalysisContext<'a> {
 /// `id` and `version` are the analyzer's cache identity: the cache key folds
 /// in `version`, so bumping it when behavior changes invalidates stale entries
 /// without touching disk (see `qli_core::cache`).
-pub trait Analyzer {
+///
+/// `Send + Sync` for the same reason as [`Language`]: the LSP server holds
+/// the registry across async tasks. Analyzers are stateless passes.
+pub trait Analyzer: Send + Sync {
     /// Stable, kebab-or-flat id used on the CLI (`--analyzer <id>`) and as the
     /// cache bucket, e.g. `"todofixme"`.
     fn id(&self) -> &'static str;

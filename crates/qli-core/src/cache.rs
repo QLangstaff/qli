@@ -1,9 +1,10 @@
 //! Content-hashed cache **key**.
 //!
 //! Purity keeps the two halves of the cache apart. This module — in the pure
-//! engine — computes the key: it folds `(language_id, blake3(content),
-//! analyzer_id, analyzer_version)` into a stable content hash and the relative
-//! on-disk path an entry lives at. The **store** (reading and writing those
+//! engine — computes the key: it folds every input an analysis result depends on
+//! — the whole [`Source`] (language, path, bytes), the language adapter's
+//! fingerprint, and the analyzer id/version — into a stable content hash and
+//! the relative on-disk path an entry lives at. The **store** (reading and writing those
 //! files under `$XDG_CACHE_HOME`) is filesystem I/O, so it lives in the `qli`
 //! binary, not here.
 //!
@@ -15,6 +16,20 @@
 
 use std::path::PathBuf;
 
+use crate::Source;
+
+/// Hex blake3 digest of `parts`. Each part is length-prefixed, so
+/// `["ab", "c"]` and `["a", "bc"]` can't alias.
+#[must_use]
+pub fn fingerprint(parts: &[&[u8]]) -> String {
+    let mut hasher = blake3::Hasher::new();
+    for part in parts {
+        hasher.update(&(part.len() as u64).to_le_bytes());
+        hasher.update(part);
+    }
+    hasher.finalize().to_hex().to_string()
+}
+
 /// The inputs that determine whether two analysis runs may share a result.
 ///
 /// Change any field and the computed [`content_hash`](CacheKey::content_hash)
@@ -23,8 +38,13 @@ use std::path::PathBuf;
 /// are ignored without touching disk.
 #[derive(Clone, Copy, Debug)]
 pub struct CacheKey<'a> {
-    pub language_id: &'a str,
-    pub content: &'a [u8],
+    /// The analyzed source. All of it is keyed, the path included: analyzers
+    /// receive the path and may bake it into their output (`DefRefs` symbol
+    /// ids do), so two files with identical bytes must not share an entry.
+    pub source: &'a Source,
+    /// The language adapter's fingerprint (grammar + queries): an adapter
+    /// change alters results without any analyzer changing.
+    pub language_fingerprint: &'a str,
     pub analyzer_id: &'a str,
     pub analyzer_version: u32,
 }
@@ -32,31 +52,30 @@ pub struct CacheKey<'a> {
 impl<'a> CacheKey<'a> {
     #[must_use]
     pub fn new(
-        language_id: &'a str,
-        content: &'a [u8],
+        source: &'a Source,
+        language_fingerprint: &'a str,
         analyzer_id: &'a str,
         analyzer_version: u32,
     ) -> Self {
         Self {
-            language_id,
-            content,
+            source,
+            language_fingerprint,
             analyzer_id,
             analyzer_version,
         }
     }
 
-    /// Hex blake3 digest folding the language id and the content. The analyzer
-    /// id/version are *not* in the hash — they bucket the path instead — but
-    /// the language is, so identical bytes analyzed as two languages don't
-    /// collide.
+    /// Hex blake3 digest folding the source and the language fingerprint. The
+    /// analyzer id/version are *not* in the hash — they bucket the path
+    /// instead.
     #[must_use]
     pub fn content_hash(&self) -> String {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(self.language_id.as_bytes());
-        // NUL separator so `("ab", "c")` and `("a", "bc")` can't alias.
-        hasher.update(&[0u8]);
-        hasher.update(self.content);
-        hasher.finalize().to_hex().to_string()
+        fingerprint(&[
+            self.source.language.as_str().as_bytes(),
+            self.language_fingerprint.as_bytes(),
+            self.source.path.as_os_str().as_encoded_bytes(),
+            &self.source.content,
+        ])
     }
 
     /// Path of this entry relative to the cache root, e.g.
@@ -75,46 +94,59 @@ impl<'a> CacheKey<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::LanguageId;
+
+    fn source(language: &str, path: &str, content: &[u8]) -> Source {
+        Source::new(path.into(), content.to_vec(), LanguageId::from(language))
+    }
+
+    fn hash(language: &str, fingerprint: &str, path: &str, content: &[u8]) -> String {
+        CacheKey::new(
+            &source(language, path, content),
+            fingerprint,
+            "todofixme",
+            1,
+        )
+        .content_hash()
+    }
 
     #[test]
     fn hash_is_stable() {
-        let key = CacheKey::new("python", b"print(1)", "todofixme", 1);
-        assert_eq!(key.content_hash(), key.content_hash());
+        assert_eq!(
+            hash("python", "f", "a.py", b"print(1)"),
+            hash("python", "f", "a.py", b"print(1)")
+        );
     }
 
     #[test]
-    fn different_content_differs() {
-        let a = CacheKey::new("python", b"a", "todofixme", 1).content_hash();
-        let b = CacheKey::new("python", b"b", "todofixme", 1).content_hash();
-        assert_ne!(a, b);
+    fn every_input_changes_the_hash() {
+        let base = hash("python", "f", "a.py", b"x");
+        assert_ne!(base, hash("typescript", "f", "a.py", b"x"), "language");
+        assert_ne!(base, hash("python", "g", "a.py", b"x"), "fingerprint");
+        assert_ne!(base, hash("python", "f", "b.py", b"x"), "path");
+        assert_ne!(base, hash("python", "f", "a.py", b"y"), "content");
     }
 
     #[test]
-    fn different_language_differs() {
-        let a = CacheKey::new("python", b"x", "todofixme", 1).content_hash();
-        let b = CacheKey::new("typescript", b"x", "todofixme", 1).content_hash();
-        assert_ne!(a, b);
-    }
-
-    #[test]
-    fn language_content_boundary_is_unambiguous() {
-        // Without the separator these would hash identically.
-        let a = CacheKey::new("ab", b"c", "id", 1).content_hash();
-        let b = CacheKey::new("a", b"bc", "id", 1).content_hash();
-        assert_ne!(a, b);
+    fn part_boundaries_are_unambiguous() {
+        // Without the length prefixes these would hash identically.
+        assert_ne!(fingerprint(&[b"ab", b"c"]), fingerprint(&[b"a", b"bc"]));
+        assert_ne!(hash("ab", "c", "p", b"x"), hash("a", "bc", "p", b"x"));
     }
 
     #[test]
     fn analyzer_version_reroutes_path_without_changing_hash() {
-        let v1 = CacheKey::new("python", b"x", "todofixme", 1);
-        let v2 = CacheKey::new("python", b"x", "todofixme", 2);
+        let source = source("python", "a.py", b"x");
+        let v1 = CacheKey::new(&source, "f", "todofixme", 1);
+        let v2 = CacheKey::new(&source, "f", "todofixme", 2);
         assert_eq!(v1.content_hash(), v2.content_hash());
         assert_ne!(v1.relative_path(), v2.relative_path());
     }
 
     #[test]
     fn relative_path_shape() {
-        let key = CacheKey::new("python", b"x", "todofixme", 3);
+        let source = source("python", "a.py", b"x");
+        let key = CacheKey::new(&source, "f", "todofixme", 3);
         let path = key.relative_path();
         let hash = key.content_hash();
         assert_eq!(

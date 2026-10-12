@@ -3,15 +3,20 @@
 //! Formatters are pluggable renderers over one engine output
 //! ([`qli_core::AnalysisResult`]): [`Format::Human`] for a TTY,
 //! [`Format::Jsonl`] for pipes. Adding a format is one module here plus one
-//! `Format` variant — the engine never changes. Phase 3A adds `lsp`, Phase 4B
-//! adds `scip`.
+//! `Format` variant — the engine never changes. [`lsp`] is the exception to the
+//! `Format` shape: an editor consumes typed protocol values, not bytes on a
+//! writer, so it exposes conversions instead of a `write`. SCIP is not a
+//! `Format` either: it is one index per project, not a rendering per file, and
+//! its protobuf dependency would land on every user of this crate — it lives
+//! in `qli-scip`.
 
 use std::io::{self, Write};
 
 use qli_core::AnalysisResult;
 
 mod human;
-mod jsonl;
+pub mod jsonl;
+pub mod lsp;
 
 /// A selectable output format. `serde` derives let the CLI accept it as a flag
 /// value and echo it back in `--help`.

@@ -1,0 +1,6 @@
+# Kept out of the packaged .vsix. `node_modules/` is deliberately NOT listed:
+# the extension is unbundled, so `vscode-languageclient` must ship inside it
+# (vsce already drops devDependencies).
+.gitignore
+.vscodeignore
+*.vsix

@@ -123,8 +123,9 @@ fn node_text<'a>(content: &'a [u8], node: tree_sitter::Node<'_>) -> Option<&'a s
 }
 
 /// Loose precursor to a SCIP symbol string (`<scheme>:<package>:<file>:<path>`).
-/// Phase 4 formalizes the scheme; for now this only needs to be stable and
-/// unique within a file, so it includes the definition's line/column.
+/// It only needs to be stable and unique within a file, so it includes the
+/// definition's line/column. The formal scheme (`qli-scip`'s `SCHEME.md`) is
+/// built from the symbol's name and kind, not from this string.
 fn symbol_id(file: &str, name: &str, line: u32, column: u32) -> String {
     format!("qli-local:{file}:{name}#{line}:{column}")
 }

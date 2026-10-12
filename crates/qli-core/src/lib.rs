@@ -3,7 +3,8 @@
 //! This crate is the shared, **pure** vocabulary that every frontend (CLI,
 //! LSP, SCIP) and every analyzer speaks: positions, ranges, diagnostics,
 //! symbols, references, and the `Source`/`AnalysisResult` boundary types, plus
-//! the content-hashed [`cache`] key.
+//! the content-hashed [`cache`] key and the project-wide reference
+//! [`resolve`] pass.
 //!
 //! # Purity invariant
 //!
@@ -24,6 +25,7 @@ mod source;
 mod symbol;
 
 pub mod cache;
+pub mod resolve;
 
 pub use diagnostic::{Diagnostic, Position, Range, Severity};
 pub use result::AnalysisResult;

@@ -1,0 +1,20 @@
+[package]
+name = "qli-scip"
+description = "SCIP index emission (symbol scheme + protobuf conversion) for the qli polyglot CLI."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["qli", "scip", "code-analysis", "indexer", "protobuf"]
+categories = ["development-tools"]
+
+[dependencies]
+qli-core = { path = "../qli-core", version = "0.2.0" }
+scip = "0.10.0"
+# Same version `scip` pins; named directly only for the `Message`/`Enum`
+# traits its generated types implement.
+protobuf = "3.7.2"
+
+[lints]
+workspace = true

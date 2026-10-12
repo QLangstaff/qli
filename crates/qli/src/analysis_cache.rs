@@ -188,8 +188,12 @@ fn filetime_now(path: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use qli_core::{Diagnostic, Position, Range, Severity};
+    use qli_core::{Diagnostic, LanguageId, Position, Range, Severity, Source};
     use tempfile::TempDir;
+
+    fn source(content: &[u8]) -> Source {
+        Source::new("a.py".into(), content.to_vec(), LanguageId::from("python"))
+    }
 
     fn result() -> AnalysisResult {
         AnalysisResult {
@@ -206,7 +210,8 @@ mod tests {
     fn put_then_get_roundtrips() {
         let tmp = TempDir::new().unwrap();
         let cache = AnalysisCache::new(tmp.path().join("analysis"), true);
-        let key = CacheKey::new("python", b"x", "todofixme", 1);
+        let source_key = source(b"x");
+        let key = CacheKey::new(&source_key, "f", "todofixme", 1);
         assert!(cache.get(&key).is_none(), "cold miss");
         cache.put(&key, &result()).unwrap();
         assert_eq!(cache.get(&key), Some(result()), "warm hit");
@@ -216,9 +221,11 @@ mod tests {
     fn version_bump_invalidates_without_touching_old() {
         let tmp = TempDir::new().unwrap();
         let cache = AnalysisCache::new(tmp.path().join("analysis"), true);
-        let v1 = CacheKey::new("python", b"x", "todofixme", 1);
+        let source_v1 = source(b"x");
+        let v1 = CacheKey::new(&source_v1, "f", "todofixme", 1);
         cache.put(&v1, &result()).unwrap();
-        let v2 = CacheKey::new("python", b"x", "todofixme", 2);
+        let source_v2 = source(b"x");
+        let v2 = CacheKey::new(&source_v2, "f", "todofixme", 2);
         assert!(cache.get(&v2).is_none(), "bumped version is a miss");
         assert!(cache.get(&v1).is_some(), "old entry untouched on disk");
     }
@@ -228,10 +235,13 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let cache = AnalysisCache::new(tmp.path().join("analysis"), true);
         cache
-            .put(&CacheKey::new("python", b"x", "todofixme", 1), &result())
+            .put(
+                &CacheKey::new(&source(b"x"), "f", "todofixme", 1),
+                &result(),
+            )
             .unwrap();
         assert!(cache
-            .get(&CacheKey::new("python", b"y", "todofixme", 1))
+            .get(&CacheKey::new(&source(b"y"), "f", "todofixme", 1))
             .is_none());
     }
 
@@ -240,7 +250,8 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path().join("analysis");
         let cache = AnalysisCache::new(root.clone(), false);
-        let key = CacheKey::new("python", b"x", "todofixme", 1);
+        let source_key = source(b"x");
+        let key = CacheKey::new(&source_key, "f", "todofixme", 1);
         cache.put(&key, &result()).unwrap();
         assert!(cache.get(&key).is_none());
         assert!(!root.exists(), "disabled cache writes nothing");
@@ -251,15 +262,21 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let cache = AnalysisCache::new(tmp.path().join("analysis"), true);
         cache
-            .put(&CacheKey::new("python", b"a", "todofixme", 1), &result())
+            .put(
+                &CacheKey::new(&source(b"a"), "f", "todofixme", 1),
+                &result(),
+            )
             .unwrap();
         cache
-            .put(&CacheKey::new("python", b"b", "todofixme", 1), &result())
+            .put(
+                &CacheKey::new(&source(b"b"), "f", "todofixme", 1),
+                &result(),
+            )
             .unwrap();
         let (files, _) = cache.clean(true, None);
         assert_eq!(files, 2);
         assert!(cache
-            .get(&CacheKey::new("python", b"a", "todofixme", 1))
+            .get(&CacheKey::new(&source(b"a"), "f", "todofixme", 1))
             .is_none());
     }
 }

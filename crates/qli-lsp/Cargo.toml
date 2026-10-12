@@ -1,0 +1,31 @@
+[package]
+name = "qli-lsp"
+description = "Language Server Protocol frontend (tower-lsp) for the qli polyglot CLI."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["qli", "lsp", "language-server", "code-analysis", "tree-sitter"]
+categories = ["development-tools", "text-editors"]
+
+[dependencies]
+qli-core = { path = "../qli-core", version = "0.2.0" }
+qli-lang = { path = "../qli-lang", version = "0.2.0" }
+qli-analyzers = { path = "../qli-analyzers", version = "0.2.0" }
+qli-outputs = { path = "../qli-outputs", version = "0.2.0" }
+# tower-lsp-server swap: replace with `tower-lsp-server`; drop the `lsp-types` dependency in `qli-outputs` alongside it.
+tower-lsp = "=0.20.0"
+tokio = { version = "1", features = ["rt", "io-std", "net", "macros", "sync"] }
+tower-service = "0.3"
+tracing = "0.1"
+
+[dev-dependencies]
+qli-lang-python = { path = "../qli-lang-python", version = "0.2.0" }
+qli-lang-typescript = { path = "../qli-lang-typescript", version = "0.2.0" }
+futures = "0.3"
+serde_json = "1"
+tower = { version = "0.4", features = ["util"] }
+
+[lints]
+workspace = true

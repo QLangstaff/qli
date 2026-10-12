@@ -3,7 +3,10 @@ mod analyze;
 mod cli;
 mod exit;
 mod ext;
+mod index;
 mod logging;
+mod lsp;
+mod mcp;
 mod panic;
 mod paths;
 mod self_update;
@@ -11,13 +14,12 @@ mod signal;
 
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::Context;
-use clap::{ArgMatches, ColorChoice, Command, CommandFactory};
-use qli_ext::{tty_confirm, DispatchOptions, DispatchSignals, ExtensionOrigin, ProductionResolver};
+use clap::{ArgMatches, ColorChoice, Command, CommandFactory, Parser};
+use qli_ext::{tty_confirm, DispatchOptions, DispatchSignals, ProductionResolver};
 
 fn main() -> ExitCode {
     // Suppress Rust's default panic UI in favour of a "this is a bug, please
@@ -25,32 +27,27 @@ fn main() -> ExitCode {
     // all of it).
     panic::install();
 
-    // If we can't resolve the XDG data dir, dispatch is dead in the water —
-    // tell the user loudly and proceed with an empty discovery so the
-    // built-in subcommands (`--version`, `completions`) still work.
-    let extensions_root = match paths::data_dir() {
-        Ok(d) => d.join("extensions"),
-        Err(err) => {
-            eprintln!(
-                "warning: could not resolve XDG data dir ({err:#}); extensions are disabled. \
-                 Set $XDG_DATA_HOME or $HOME and retry."
-            );
-            PathBuf::new()
-        }
-    };
-
-    // Embedded defaults: materialize to a version-keyed cache so they're
-    // dispatchable even before the user runs `qli ext install-defaults`.
-    // Best-effort — a failure here disables the embedded layer but does
-    // not prevent XDG-installed extensions from running.
-    let embedded_root = materialize_embedded_layer();
-
-    let mut sources: Vec<(&std::path::Path, ExtensionOrigin)> = Vec::with_capacity(2);
-    sources.push((extensions_root.as_path(), ExtensionOrigin::Xdg));
-    if let Some(root) = embedded_root.as_deref() {
-        sources.push((root, ExtensionOrigin::Embedded));
+    // `qli lsp` owns its output streams — stdout is LSP frames in stdio mode,
+    // stderr must stay silent in tcp mode — so it is routed here, before
+    // anything below can print. Extension discovery, embedded-defaults
+    // materialization, and the dispatcher's signal handler (which would
+    // swallow an editor's SIGTERM) are all skipped: the server needs none of
+    // them. The static derive tree is enough to recognise the subcommand; a
+    // command line that needs a discovered group, `--help`, or a parse error
+    // fails this probe silently and takes the normal path.
+    if let Ok(cli::Cli {
+        verbose,
+        quiet,
+        color,
+        command: Some(cli::Command::Lsp { tcp, .. }),
+        ..
+    }) = cli::Cli::try_parse()
+    {
+        cli::apply_color_choice(color);
+        return exit_code(lsp::run(tcp, verbose, quiet));
     }
-    let discovery = qli_ext::discover(&sources);
+
+    let discovery = ext::discover();
 
     // Print warnings before `get_matches` so they fire even when clap exits
     // early (`--help`, `--version`, parse errors). The plan requires
@@ -80,9 +77,14 @@ fn main() -> ExitCode {
     logging::init(verbose, quiet);
 
     paths::ensure_all();
-    let signals = signal::install();
 
-    match dispatch(root, &discovery, &matches, assume_yes, signals) {
+    exit_code(dispatch(root, &discovery, &matches, assume_yes))
+}
+
+/// Map a command's outcome to the process exit code, printing a failure as
+/// `error: …` on stderr.
+fn exit_code(result: anyhow::Result<u8>) -> ExitCode {
+    match result {
         Ok(code) => ExitCode::from(code),
         Err(err) => {
             eprintln!("error: {err:#}");
@@ -96,7 +98,6 @@ fn dispatch(
     discovery: &qli_ext::Discovery,
     matches: &ArgMatches,
     assume_yes: bool,
-    signals: Arc<DispatchSignals>,
 ) -> anyhow::Result<u8> {
     use clap_complete::Shell;
 
@@ -113,8 +114,14 @@ fn dispatch(
             Ok(exit::SUCCESS)
         }
         Some(("ext", sub)) => dispatch_ext(sub, discovery),
+        Some(("index", sub)) => index::run(sub),
+        Some(("mcp", _)) => mcp::run(),
         Some(("self-update", sub)) => dispatch_self_update(sub),
         Some((group_name, group_matches)) => {
+            // Installed only here: the handler exists to forward Ctrl+C to a
+            // running extension. A built-in command has no child to forward
+            // to, so it keeps the default disposition and Ctrl+C ends it.
+            let signals = signal::install();
             dispatch_group(discovery, group_name, group_matches, assume_yes, signals)
         }
     }
@@ -150,40 +157,22 @@ fn dispatch_ext_list(matches: &ArgMatches, discovery: &qli_ext::Discovery) -> an
     let json = matches.get_flag("json");
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
+    let records = ext::records(discovery);
     if json {
-        let items: Vec<_> = discovery
-            .groups
-            .values()
-            .flat_map(|group| {
-                group.extensions.values().map(|ext| {
-                    serde_json::json!({
-                        "group": group.name,
-                        "extension": ext.name,
-                        "origin": ext.origin.as_str(),
-                        "path": ext.path.display().to_string(),
-                    })
-                })
-            })
-            .collect();
         // Pretty-print so the output is readable when the user runs the
         // command interactively. `jq -c .` re-collapses for piping.
-        serde_json::to_writer_pretty(&mut out, &items).context("failed to write JSON output")?;
+        serde_json::to_writer_pretty(&mut out, &records).context("failed to write JSON output")?;
         writeln!(out).context("failed to write trailing newline")?;
     } else {
         // Tab-separated; preserves spaces in paths (callers can `column -t`
         // for visual alignment).
-        for group in discovery.groups.values() {
-            for ext in group.extensions.values() {
-                writeln!(
-                    out,
-                    "{}\t{}\t{}\t{}",
-                    group.name,
-                    ext.name,
-                    ext.origin.as_str(),
-                    ext.path.display(),
-                )
-                .context("failed to write list row")?;
-            }
+        for record in records {
+            writeln!(
+                out,
+                "{}\t{}\t{}\t{}",
+                record.group, record.extension, record.origin, record.path,
+            )
+            .context("failed to write list row")?;
         }
     }
     Ok(exit::SUCCESS)
@@ -210,12 +199,7 @@ fn dispatch_ext_which(matches: &ArgMatches, discovery: &qli_ext::Discovery) -> a
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
     if json {
-        let payload = serde_json::json!({
-            "group": group.name,
-            "extension": ext.name,
-            "origin": ext.origin.as_str(),
-            "path": ext.path.display().to_string(),
-        });
+        let payload = ext::ExtensionRecord::new(group, ext);
         serde_json::to_writer_pretty(&mut out, &payload).context("failed to write JSON output")?;
         writeln!(out).context("failed to write trailing newline")?;
     } else {
@@ -382,44 +366,6 @@ fn dispatch_group(
     // collapse to our generic ERROR. Unix exit codes are normalized to
     // 0..=255 by the kernel, so the fallback is rare.
     Ok(u8::try_from(code).unwrap_or(exit::ERROR))
-}
-
-/// Materialize the binary's embedded extension defaults to a version-keyed
-/// cache root and return that root.
-///
-/// Returns `None` if the cache dir can't be resolved (e.g. no `HOME`) or
-/// if extraction fails. Both conditions print a warning and disable the
-/// embedded layer for this run; XDG-installed extensions and built-in
-/// subcommands keep working.
-fn materialize_embedded_layer() -> Option<PathBuf> {
-    let cache = match paths::cache_dir() {
-        Ok(c) => c,
-        Err(err) => {
-            eprintln!(
-                "warning: could not resolve XDG cache dir ({err:#}); embedded \
-                 defaults are disabled. XDG extensions still work."
-            );
-            return None;
-        }
-    };
-    let root = cache.join("embedded").join(env!("CARGO_PKG_VERSION"));
-    if let Err(err) = std::fs::create_dir_all(&root) {
-        eprintln!(
-            "warning: could not create embedded cache at {} ({err}); \
-             embedded defaults are disabled.",
-            root.display(),
-        );
-        return None;
-    }
-    if let Err(err) = qli_ext::materialize_to(&root, false) {
-        eprintln!(
-            "warning: could not extract embedded defaults to {} ({err}); \
-             embedded defaults are disabled.",
-            root.display(),
-        );
-        return None;
-    }
-    Some(root)
 }
 
 /// Resolved fallbacks for the env vars `audit_log` literals are most likely

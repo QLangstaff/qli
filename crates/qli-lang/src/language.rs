@@ -39,7 +39,11 @@ impl ParseTree {
 /// this — usually by delegating to [`TreeSitterLanguage`](crate::TreeSitterLanguage).
 /// Grammar quirks (TypeScript's two grammars, C#'s preprocessor) are absorbed
 /// here so the engine above stays language-agnostic.
-pub trait Language: std::fmt::Debug {
+///
+/// `Send + Sync` because a long-lived frontend (the LSP server) shares one
+/// registry across async tasks; adapters are immutable data, so this costs
+/// nothing.
+pub trait Language: std::fmt::Debug + Send + Sync {
     /// Stable language id, e.g. `"python"`. Matches [`Source::language`].
     fn id(&self) -> qli_core::LanguageId;
 
@@ -47,8 +51,28 @@ pub trait Language: std::fmt::Debug {
     /// `["ts", "tsx"]`). Used for `--lang auto` detection.
     fn extensions(&self) -> &'static [&'static str];
 
+    /// Project marker files that gate `--lang auto` for this adapter's
+    /// extensions (e.g. `["angular.json"]`): the file is only treated as this
+    /// language when one of its ancestor directories contains a marker. Empty
+    /// (the default) means the extension alone identifies the language.
+    ///
+    /// This is for extensions shared with files the adapter must not claim —
+    /// `.html` is an Angular template only inside an Angular workspace. The
+    /// adapter just declares the names;
+    /// [`LanguageRegistry::for_path`](crate::LanguageRegistry::for_path)
+    /// probes the filesystem, and an explicit `--lang <id>` bypasses the gate.
+    fn project_markers(&self) -> &'static [&'static str] {
+        &[]
+    }
+
     /// The tree-sitter grammar for this language.
     fn ts_language(&self) -> tree_sitter::Language;
+
+    /// A digest of everything in this adapter that shapes analysis results:
+    /// the grammar and the named queries. It is part of the cache key
+    /// ([`qli_core::cache::CacheKey`]), so changing a query or bumping a
+    /// grammar invalidates cached results without any analyzer version bump.
+    fn fingerprint(&self) -> &str;
 
     /// A named tree-sitter query committed to this adapter (e.g. `"defrefs"`).
     ///

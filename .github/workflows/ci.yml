@@ -51,6 +51,33 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: rustup show active-toolchain
+      # The SCIP CLI (scip-code/scip) validates the index `qli index` emits
+      # (`crates/qli/tests/index.rs`). Pinned by version *and* checksum; bump
+      # all three together. The test finds the binary through `QLI_SCIP_BIN`
+      # rather than `PATH` because other tools are also named `scip` (the SCIP
+      # optimization solver), and fails — not skips — when `CI` is set and the
+      # binary is missing.
+      - name: Install scip CLI
+        env:
+          SCIP_VERSION: v0.10.0
+          SCIP_SHA256_LINUX_AMD64: eeb28ebbff443c01609fb1691809958f3f0c7a8651af689a5bc8560061cd8ab0
+          SCIP_SHA256_DARWIN_ARM64: 7ea200390e0790b3da8999b7b1cd4e3597700dcb3d354911872523bfe0090779
+        run: |
+          set -euo pipefail
+          case "${RUNNER_OS}-${RUNNER_ARCH}" in
+            Linux-X64)   asset=scip-linux-amd64;  sha256="${SCIP_SHA256_LINUX_AMD64}" ;;
+            macOS-ARM64) asset=scip-darwin-arm64; sha256="${SCIP_SHA256_DARWIN_ARM64}" ;;
+            *) echo "no pinned scip CLI for ${RUNNER_OS}-${RUNNER_ARCH}" >&2; exit 1 ;;
+          esac
+          dir="${RUNNER_TEMP}/scip-cli"
+          mkdir -p "${dir}"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "${dir}/${asset}.tar.gz" \
+            "https://github.com/scip-code/scip/releases/download/${SCIP_VERSION}/${asset}.tar.gz"
+          echo "${sha256}  ${dir}/${asset}.tar.gz" | shasum -a 256 --check
+          tar -xzf "${dir}/${asset}.tar.gz" -C "${dir}" scip
+          "${dir}/scip" --version
+          echo "QLI_SCIP_BIN=${dir}/scip" >> "${GITHUB_ENV}"
       - run: cargo test --workspace
 
   build:

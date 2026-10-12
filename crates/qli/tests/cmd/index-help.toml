@@ -1,0 +1,27 @@
+bin.name = "qli"
+args = "index --help"
+status.code = 0
+stdout = """
+Index a project into a SCIP index (definitions and references)
+
+Usage: qli index [OPTIONS] [PATH]
+
+Arguments:
+  [PATH]  Project root to index. Walked recursively (respecting `.gitignore`); unsupported files are skipped [default: .]
+
+Options:
+      --output <FILE>  Where to write the index [default: index.scip]
+  -v, --verbose...     Increase logging verbosity. -v info, -vv debug, -vvv trace. `RUST_LOG=<level>` overrides; `RUST_LOG=<target>=<level>` refines
+      --lang <IDS>     Only index these languages (comma-separated ids). Default: every supported language
+  -q, --quiet          Decrease logging (suppress info; errors still print)
+      --color <COLOR>  When to use colored output [default: auto] [possible values: auto, always, never]
+  -y, --yes            Assume yes for any guard prompt. Required for non-interactive runs of extensions whose group manifest sets `confirm = true`
+  -h, --help           Print help
+
+EXAMPLES:
+    qli index                            Index the current directory into ./index.scip.
+    qli index src/ --output out.scip     Index a directory, choosing the output file.
+    qli index --lang python,typescript   Index only the named languages.
+    scip print --json index.scip         Inspect the result with the SCIP CLI.
+"""
+stderr = ""

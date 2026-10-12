@@ -11,11 +11,15 @@ use qli_core::{AnalysisResult, Diagnostic, Range, Severity};
 use qli_lang::{AnalysisContext, Analyzer};
 use regex::Regex;
 
-use crate::util::byte_to_position;
+use crate::util::{point_to_position, position_within};
 
 /// Marker keywords, matched on word boundaries and case-sensitively (screaming
 /// case is the convention; `todo` in prose shouldn't fire).
 const MARKERS: &str = r"\b(TODO|FIXME|XXX|HACK)\b";
+
+/// Block-comment terminators that can close a comment on the marker's own
+/// line (`/* TODO: x */`, `<!-- TODO: x -->`).
+const BLOCK_TERMINATORS: &[&str] = &["*/", "-->"];
 
 #[derive(Debug, Default)]
 pub struct TodoFixme;
@@ -33,7 +37,8 @@ impl Analyzer for TodoFixme {
     }
 
     fn version(&self) -> u32 {
-        1
+        // 2: `summarize` strips the HTML `-->` terminator as well as `*/`.
+        2
     }
 
     fn analyze(&self, ctx: &AnalysisContext<'_>) -> AnalysisResult {
@@ -50,11 +55,11 @@ impl Analyzer for TodoFixme {
                 // Non-UTF-8 comment bytes: skip rather than guess.
                 continue;
             };
+            let comment_start = point_to_position(comment.start_position());
             for m in re.find_iter(text) {
                 let marker = m.as_str();
-                let start_byte = range.start + m.start();
-                let start = byte_to_position(content, start_byte);
-                let end = byte_to_position(content, range.start + m.end());
+                let start = position_within(comment_start, text.as_bytes(), m.start());
+                let end = position_within(comment_start, text.as_bytes(), m.end());
                 let message = summarize(marker, &text[m.start()..]);
                 diagnostics.push(
                     Diagnostic::new(Range::new(start, end), Severity::Info, message)
@@ -75,11 +80,12 @@ impl Analyzer for TodoFixme {
 fn summarize(marker: &str, from_marker: &str) -> String {
     let line = from_marker.lines().next().unwrap_or(from_marker);
     // Trim trailing whitespace, then a single-line block-comment terminator
-    // (`*/`) that would otherwise leak into the message, then whitespace again.
-    let trimmed = line
-        .trim_end()
-        .strip_suffix("*/")
-        .unwrap_or_else(|| line.trim_end())
+    // that would otherwise leak into the message, then whitespace again.
+    let line = line.trim_end();
+    let trimmed = BLOCK_TERMINATORS
+        .iter()
+        .find_map(|terminator| line.strip_suffix(terminator))
+        .unwrap_or(line)
         .trim_end();
     // Drop the marker itself and any immediately-following `:`/whitespace so
     // the message reads naturally, then re-prefix with the marker.
@@ -91,9 +97,9 @@ fn summarize(marker: &str, from_marker: &str) -> String {
     }
 }
 
-/// Every `comment`-kinded node in the tree, in source order. Both the Python
-/// and TypeScript grammars name comments `comment` (line and block alike), so
-/// this stays language-agnostic.
+/// Every `comment`-kinded node in the tree, in source order. The Python,
+/// TypeScript, C#, and Angular grammars all name comments `comment` (line,
+/// block, doc, and `<!-- -->` alike), so this stays language-agnostic.
 fn comment_nodes(root: tree_sitter::Node<'_>) -> Vec<tree_sitter::Node<'_>> {
     let mut out = Vec::new();
     let mut cursor = root.walk();

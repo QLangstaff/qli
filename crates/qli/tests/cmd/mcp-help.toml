@@ -1,0 +1,22 @@
+bin.name = "qli"
+args = "mcp --help"
+status.code = 0
+stdout = """
+Run the Model Context Protocol (MCP) server for AI assistants
+
+Usage: qli mcp [OPTIONS]
+
+Options:
+  -v, --verbose...     Increase logging verbosity. -v info, -vv debug, -vvv trace. `RUST_LOG=<level>` overrides; `RUST_LOG=<target>=<level>` refines
+  -q, --quiet          Decrease logging (suppress info; errors still print)
+      --color <COLOR>  When to use colored output [default: auto] [possible values: auto, always, never]
+  -y, --yes            Assume yes for any guard prompt. Required for non-interactive runs of extensions whose group manifest sets `confirm = true`
+  -h, --help           Print help
+
+EXAMPLES:
+    qli mcp                  Serve MCP over stdin/stdout (what MCP clients spawn).
+    qli mcp -vv              Same, with debug logging on stderr.
+    claude mcp add qli -- qli mcp
+                             Register the server with Claude Code.
+"""
+stderr = ""

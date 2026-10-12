@@ -1,0 +1,72 @@
+{
+  "name": "qli-vscode",
+  "displayName": "qli",
+  "description": "TODO/FIXME diagnostics and same-file go-to-definition from the qli language server (qli lsp).",
+  "version": "0.2.0",
+  "publisher": "qlangstaff",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QLangstaff/qli.git",
+    "directory": "editors/vscode"
+  },
+  "homepage": "https://github.com/QLangstaff/qli/tree/main/editors",
+  "bugs": {
+    "url": "https://github.com/QLangstaff/qli/issues"
+  },
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "qli",
+    "lsp",
+    "todo",
+    "fixme"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:csharp",
+    "onLanguage:html"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "qli",
+      "properties": {
+        "qli.path": {
+          "type": "string",
+          "default": "qli",
+          "scope": "machine-overridable",
+          "description": "Path to the qli binary. The default resolves `qli` on PATH."
+        },
+        "qli.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "scope": "window",
+          "description": "Trace the LSP messages exchanged with `qli lsp` in the \"qli\" output channel."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "prepackage": "node -e \"require('fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.2.0"
+  }
+}

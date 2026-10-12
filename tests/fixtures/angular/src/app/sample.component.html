@@ -1,0 +1,29 @@
+<!-- TODO: replace the placeholder heading -->
+<h1 [title]="heading">{{ heading | uppercase }}</h1>
+
+<!-- FIXME: the retry button ignores the busy state -->
+<button #retryButton [disabled]="busy" (click)="retry($event)">Retry</button>
+<input [(ngModel)]="query" />
+
+<!--
+  XXX: audit the trackBy below
+-->
+<ul *ngIf="ready; else loading">
+  <li *ngFor="let widget of widgets; trackBy: trackById; let i = index">
+    {{ i }}: {{ render(widget) }}
+  </li>
+</ul>
+<ng-template #loading><p>TODO this text must NOT be flagged</p></ng-template>
+
+<!-- HACK: temporary until the signal API settles -->
+@let format = formatter();
+@if (selected(); as current) {
+  <p>{{ format(current.name) }}</p>
+} @else {
+  <p>none</p>
+}
+@for (item of items(); track item.id; let idx = $index) {
+  <span>{{ idx }}: {{ item.label }}</span>
+} @empty {
+  <span>empty</span>
+}

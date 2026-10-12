@@ -14,10 +14,14 @@ categories = ["command-line-utilities", "development-tools"]
 qli-ext = { path = "../qli-ext", version = "0.2.0" }
 qli-core = { path = "../qli-core", version = "0.2.0" }
 qli-lang = { path = "../qli-lang", version = "0.2.0" }
+qli-lang-csharp = { path = "../qli-lang-csharp", version = "0.2.0" }
+qli-lang-angular = { path = "../qli-lang-angular", version = "0.2.0" }
 qli-lang-python = { path = "../qli-lang-python", version = "0.2.0" }
 qli-lang-typescript = { path = "../qli-lang-typescript", version = "0.2.0" }
 qli-analyzers = { path = "../qli-analyzers", version = "0.2.0" }
 qli-outputs = { path = "../qli-outputs", version = "0.2.0" }
+qli-lsp = { path = "../qli-lsp", version = "0.2.0" }
+qli-scip = { path = "../qli-scip", version = "0.2.0" }
 
 clap = { version = "4", features = ["derive"] }
 ignore = "0.4"
@@ -27,15 +31,21 @@ anstyle = "1"
 anyhow = "1"
 ctrlc = { version = "3", features = ["termination"] }
 etcetera = "0.10"
+# Default features off: `base64` is only for binary tool content, which no qli tool returns.
+rmcp = { version = "3.5", default-features = false, features = ["server", "macros", "transport-io"] }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["rt", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
+rmcp = { version = "3.5", default-features = false, features = ["client"] }
 serial_test = "3"
 tempfile = "3"
+tokio = { version = "1", features = ["rt", "io-util", "process", "time"] }
 trycmd = "0.15"
 
 [target.'cfg(unix)'.dev-dependencies]

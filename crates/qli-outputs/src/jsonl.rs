@@ -13,16 +13,30 @@ use serde_json::json;
 
 /// Write `result` for `file` as JSON Lines.
 pub fn write(w: &mut dyn Write, file: &str, result: &AnalysisResult) -> io::Result<()> {
-    for d in &result.diagnostics {
-        write_line(w, &tagged(file, "diagnostic", d))?;
-    }
-    for s in &result.symbols {
-        write_line(w, &symbol_record(file, s))?;
-    }
-    for r in &result.references {
-        write_line(w, &reference_record(file, r))?;
+    for record in records(file, result) {
+        write_line(w, &record)?;
     }
     Ok(())
+}
+
+/// The records [`write`] emits for `file`, one per finding, in output order:
+/// diagnostics, then symbols, then references. For a frontend that hands
+/// records to its client as JSON values instead of writing lines (the MCP
+/// `qli_analyze` tool).
+pub fn records<'a>(
+    file: &'a str,
+    result: &'a AnalysisResult,
+) -> impl Iterator<Item = serde_json::Value> + 'a {
+    let diagnostics = result
+        .diagnostics
+        .iter()
+        .map(move |d| tagged(file, "diagnostic", d));
+    let symbols = result.symbols.iter().map(move |s| symbol_record(file, s));
+    let references = result
+        .references
+        .iter()
+        .map(move |r| reference_record(file, r));
+    diagnostics.chain(symbols).chain(references)
 }
 
 fn write_line(w: &mut dyn Write, value: &serde_json::Value) -> io::Result<()> {

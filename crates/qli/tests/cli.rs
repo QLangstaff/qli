@@ -14,6 +14,8 @@
 //!   - `completions-help.toml` — `qli completions --help` (examples block)
 //!   - `completions-zsh.toml` — first line + redaction of zsh script body
 //!   - `analyze-help.toml` — `qli analyze --help` (flags + examples block)
+//!   - `lsp-help.toml` — `qli lsp --help` (transport flags + examples block)
+//!   - `mcp-help.toml` — `qli mcp --help` (examples block)
 //!   - `unknown-no-tip.toml` — `qli foo` (no close subcommand → no tip)
 //!   - `unknown-with-tip.toml` — `qli porod hello` (typo of `prod` → tip)
 //!   - `missing-env.toml` — `qli prod hello` without `QLI_ENV` → export hint

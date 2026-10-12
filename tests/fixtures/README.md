@@ -9,6 +9,7 @@ tests/fixtures/
   typescript/
   csharp/
   angular/
+  multifile/
   ...
 ```
 
@@ -23,10 +24,31 @@ preemptively here:
   `TODO` that must NOT be flagged) and a set of definitions/references
   (`foo` defined and called → resolved; `bar` called but undefined →
   unresolved). Cross-file resolution is out of scope until Phase 4.
-- `tests/fixtures/csharp/` lands in Phase 2.5.
-- `tests/fixtures/angular/` lands in Phase 2.6.
-- Phase 3 (LSP) and Phase 4 (SCIP) reuse the Phase 2H/2I fixtures rather
-  than carrying their own.
+- `tests/fixtures/csharp/` landed in Phase 2.5. Its `sample.cs` has the same
+  shape as the Phase 2H/2I samples (the `FIXME` in a block comment, the `XXX`
+  in a `///` doc comment), with `Foo`/`Bar` called as methods of `Widget` and
+  a member-access call (`new Widget().Render()`) that is not a reference.
+- `tests/fixtures/angular/` landed in Phase 2.6. It is a minimal Angular
+  workspace: the `angular.json` at its root is the project marker that makes
+  `--lang auto` treat `.html` files beneath it as Angular templates.
+  `src/app/sample.component.html` exercises both analyzers: the four markers
+  in `<!-- -->` comments (plus an element-text `TODO` that must NOT be
+  flagged), every template construct (`*ngIf`/`*ngFor`, `[prop]`, `(event)`,
+  `[(ngModel)]`, `{{ }}`, `@let`/`@if`/`@for`), and `format` bound by `@let`
+  and called → resolved, while component-class calls such as `retry` stay
+  unresolved.
+- `tests/fixtures/html/plain.html` is the counter-case: a `.html` file with
+  no `angular.json` above it, which `--lang auto` must skip and
+  `--lang angular` must still analyze.
+- `tests/fixtures/multifile/` landed in Phase 4 (SCIP). Unlike the
+  single-file samples it is one small *project* — `python/` and `typescript/`
+  halves — shaped for cross-file resolution: `foo` and `Gadget` defined in
+  `lib.*` and called from `app.*` (and from `view.tsx`, across the
+  `.ts`/`.tsx` boundary); `helper` defined in two Python files (ambiguous →
+  unresolved); `missing` defined nowhere; and a call after non-ASCII text on
+  one line of `python/app.py` (byte columns). `foo` exists in both halves on
+  purpose: a call must resolve within its own language.
+- Phase 3 (LSP) reuses the Phase 2H/2I fixtures rather than carrying its own.
 
 ## Path discipline
 
