@@ -66,6 +66,26 @@ jobs:
       - run: rustup show active-toolchain
       - run: cargo build --release --workspace
 
+  msrv:
+    name: msrv
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      # Every other job builds on the `rust-toolchain.toml` pin, so nothing
+      # else notices when a dependency outgrows the `rust-version` the
+      # published crates declare (`ignore` and `home` needed rustc 1.88 while
+      # the workspace still said 1.85). Read the version from the manifest so
+      # the two cannot drift.
+      - name: Check on the declared rust-version
+        env:
+          RUSTFLAGS: ""
+        run: |
+          set -euo pipefail
+          msrv="$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].rust_version')"
+          rustup toolchain install "${msrv}" --profile minimal
+          cargo "+${msrv}" check --workspace --all-targets --locked
+
   audit:
     name: cargo-audit
     runs-on: ubuntu-latest
